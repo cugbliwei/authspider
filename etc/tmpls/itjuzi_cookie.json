@@ -1,0 +1,35 @@
+{
+    "steps": [
+        {
+            "tag": "hack_cookie",
+            "page": "http://10.131.0.100:8082/itjuzi",
+            "method": "POST",
+            "params": {
+                "arg1": "{{.arg1}}"
+            },
+            "doc_type": "html",
+            "output_filename": "acw_sc.html",
+            "context_opers": [
+                "{{set \"acw_sc\" ._body}}"
+            ],
+            "actions": [
+                {
+                    "condition": "{{notEmpty .value}}",
+                    "goto": "add_cookie"
+                }
+            ]
+        },
+        {
+            "tag": "add_cookie",
+            "context_opers": [
+                "{{addKeyValueToJson .cookies \"itjuzi.com,itjuzi.com;/;acw_sc__\" \"Value\" .acw_sc | set \"new_cookies\"}}",
+                "{{base64Encode .new_cookies | set \"current_cookies\"}}",
+                "{{intToString .rand_index | set \"rand_index\"}}",
+                "{{joinString \"itjuzi_account_\" .rand_index | set \"cookie_key\"}}",
+                "{{writeToRedis \"xxxx\" .current_cookies 86400}}",
+                "{{del .arg1}}"
+            ],
+            "use_cookie": "{{.current_cookies}}"
+        }
+    ]
+}

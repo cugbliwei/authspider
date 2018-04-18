@@ -1,0 +1,894 @@
+{
+    "casperjs_script": "jd_shop.js",
+    "steps": [
+        {
+			"need_param": "username,password"
+        },
+        {
+            "tag": "read_param",
+            "context_opers": [
+                "{{readCasper | set \"casper_param\"}}"
+            ],
+            "actions": [
+                {
+                    "condition": "{{hasPrefix .casper_param \"need_path\"}}",
+                    "opers": [
+                        "{{joinString \"path###\" ._path | set \"path_params\"}}",
+                        "{{writeCasper .path_params}}"
+                    ],
+                    "goto": "read_param"
+                },
+                {
+                    "condition": "{{hasPrefix .casper_param \"need_username\"}}",
+                    "opers": [
+                        "{{joinString \"username###\" .username \"###\" .password | set \"login_params\"}}",
+                        "{{writeCasper .login_params}}"
+                    ],
+                    "goto": "read_param"
+                },
+                {
+                    "condition": "{{hasPrefix .casper_param \"fail\"}}",
+                    "opers": [
+                        "{{getCasperMsg .casper_param \";\" | set \"casper_msg\"}}"
+                    ],
+                    "message": {
+                        "status": "fail",
+                        "data": "{{.casper_msg}}"
+                    }
+                },
+                {
+                    "condition": "{{hasPrefix .casper_param \"need_randcode\"}}",
+                    "opers": [
+                        "{{getCasperMsg .casper_param \";\" | set \"randcode_base64\"}}",
+                        "{{uploadVerifyCode .randcode_base64 | set \"randcodeUrl\"}}"
+                    ],
+                    "message": {
+                        "status": "output_verifycode",
+                        "data": "{{.randcodeUrl}}",
+                        "need_param": "randcode"
+                    },
+                    "goto": "send_randcode"
+                },
+                {
+                    "condition": "{{hasPrefix .casper_param \"wrong_randcode\"}}",
+                    "delete_context": ["randcode", "randcodeUrl", "randcode_base64"],
+                    "opers": [
+                        "{{getCasperMsg .casper_param \";\" | set \"randcode_base64\"}}",
+                        "{{uploadVerifyCode .randcode_base64 | set \"randcodeUrl\"}}"
+                    ],
+                    "message": {
+                        "status": "wrong_verifycode",
+                        "data": "{{.randcodeUrl}}",
+                        "need_param": "randcode"
+                    },
+                    "goto": "send_randcode"
+                },
+                {
+                    "condition": "{{hasPrefix .casper_param \"need_password2\"}}",
+                    "opers": [
+                        "{{getCasperMsg .casper_param \";\" | set \"phone_number\"}}"
+                    ],
+                    "message": {
+                        "need_param": "password2",
+                        "status": "need_param",
+                        "data": "{{.phone_number}}"
+                    },
+                    "goto": "sms"
+                },
+                {
+                    "condition": "{{hasPrefix .casper_param \"wrong_password2\"}}",
+                    "delete_context": ["password2"],
+                    "message": {
+                        "need_param": "password2",
+                        "status": "wrong_second_password",
+                        "data": "{{.phone_number}}"
+                    },
+                    "goto": "sms"
+                },
+                {
+                    "condition": "{{hasPrefix .casper_param \"need_password3\"}}",
+                    "delete_context": ["password2", "phone_number"],
+                    "opers": [
+                        "{{getCasperMsg .casper_param \";\" | set \"phone_number\"}}"
+                    ],
+                    "message": {
+                        "need_param": "password2",
+                        "status": "need_param",
+                        "data": "{{.phone_number}}"
+                    },
+                    "goto": "sms3"
+                },
+                {
+                    "condition": "{{hasPrefix .casper_param \"wrong_password3\"}}",
+                    "delete_context": ["password2"],
+                    "message": {
+                        "need_param": "password2",
+                        "status": "wrong_second_password",
+                        "data": "{{.phone_number}}"
+                    },
+                    "goto": "sms3"
+                },
+                {
+                    "condition": "{{hasPrefix .casper_param \"cookie###\"}}",
+                    "opers": [
+                        "{{getCasperMsg .casper_param \"###\" | base64Encode | set \"casper_cookies\"}}"
+                    ],
+                    "goto": "casper_login_success"
+                }
+            ]
+        },
+        {
+            "tag": "send_randcode",
+            "need_param": "randcode",
+            "actions": [
+                {
+                    "condition": "{{eq 1 1}}",
+                    "opers": [
+                        "{{joinString \"randcode###\" .randcode | set \"randcode_params\"}}",
+                        "{{writeCasper .randcode_params}}"
+                    ],
+                    "goto": "read_param"
+                }
+            ]
+        },
+        {
+            "tag": "sms",
+            "need_param": "password2",
+            "context_opers": [
+                "{{joinString \"password2###\" .password2 | set \"sms_params\"}}",
+                "{{writeCasper .sms_params}}"
+            ],
+            "actions": [
+                {
+                    "condition": "{{eq 1 1}}",
+                    "goto": "read_param"
+                }
+            ]
+        },
+        {
+            "tag": "sms3",
+            "need_param": "password2",
+            "context_opers": [
+                "{{joinString \"password3###\" .password2 | set \"sms_params\"}}",
+                "{{writeCasper .sms_params}}"
+            ],
+            "actions": [
+                {
+                    "condition": "{{eq 1 1}}",
+                    "goto": "read_param"
+                }
+            ]
+        },
+        {
+            "tag": "casper_login_success",
+            "use_cookie": "{{.casper_cookies}}"
+        },
+        {
+            "page":"https://shop.jd.com/index.action?xyz",
+            "method":"GET",
+            "response_timeout": 3,
+            "visit_times": 3,
+			"output_filename": "index.action",
+            "context_opers": [
+                "{{extractRegex \"手机短信\\\\(([0-9]+[\\\\*]+[0-9]+)\\\\)\" ._body | set \"phone\"}}",
+                "{{extractHtml \"span.span-verify-num\" ._body | set \"phone2\"}}",
+                "{{if empty \"phone\"}}{{set \"phone\" .phone2}}{{end}}"
+            ]
+        },
+		{
+			"tag":"send_sms",
+            "condition": "{{notEmpty \"phone\"}}",
+			"page":"https://shop.jd.com/phoneSend.action?mobile={{.phone}}",
+			"method":"POST",
+            "response_timeout": 3,
+            "visit_times": 3,
+			"output_filename":"send_phone.html",
+			"header":{
+				"Host":"shop.jd.com",
+				"X-Requested-With":"XMLHttpRequest"
+			},
+			"message": {
+                "need_param": "password2",
+                "status": "need_param",
+                "data": "{{.phone}}"
+            }
+		},
+		{
+            "tag":"input_password2_old",
+			"condition": "{{and (notEmpty \"phone\") false}}",
+			"need_param": "password2",
+			"page":"https://shop.jd.com/doNewLoginProtect.action",
+			"method":"POST",
+			"params":{
+				"mobile":"{{.phone}}",
+				"pcode":"{{.password2}}",
+				"protectType":"phoneCheck",
+				"safRet":"3"
+			},
+			"header":{
+				"Host":"shop.jd.com",
+				"X-Requested-With":"XMLHttpRequest"
+			},
+            "response_timeout": 3,
+            "visit_times": 3,
+            "output_filename":"send_phone2.html",
+            "actions": [
+                {
+                    "condition": "{{extractHtml \"#codeMsg\" ._body | contains \"验证码不匹配\"}}",
+                    "goto": "input_password2",
+                    "delete_context": ["password2"],
+                    "message": {
+                        "need_param": "password2",
+                        "status": "wrong_second_password",
+                        "data": "验证码输入有误，请重新输入"
+                    }
+                },
+                {
+                    "condition": "{{extractHtml \"#codeMsg\" ._body | contains \"验证码已失效\"}}",
+                    "goto": "send_sms",
+                    "delete_context": ["password2"]
+                }
+            ]
+		},
+		{
+			"tag":"input_password2",
+			"condition": "{{notEmpty \"phone\"}}",
+			"need_param": "password2",
+			"page": "https://passport.shop.jd.com/loginProtect/mobile_checkCode.action",
+			"method": "POST",
+			"params": {
+				"verifyParamInfo.pcode": "{{printf \"%s_%s\" .password2 .phone}}"
+			},
+			"header": {
+				"X-Requested-With": "XMLHttpRequest"
+			},
+			"response_timeout": 3,
+			"visit_times": 3,
+			"context_opers": [
+			    "{{extractJson \"result.code\" ._body | set \"sendpassword2_code\"}}",
+			    "{{extractJson \"result.msg\" ._body | set \"sendpassword2_fail_msg\"}}"
+			],
+			"output_filename": "send_phone2_new.html",
+			"actions": [
+				{
+					"condition": "{{eq .sendpassword2_code \"200\"}}",
+					"goto": "prepareIndex"
+				},
+				{
+					"condition": "{{sendpassword2_fail_msg | contains \"验证码不匹配\"}}",
+					"goto": "input_password2",
+					"delete_context": ["password2"],
+					"message": {
+						"need_param": "password2",
+						"status": "wrong_second_password",
+						"data": "验证码输入有误，请重新输入"
+					}
+				},
+				{
+					"condition": "{{sendpassword2_fail_msg | contains \"验证码已失效\"}}",
+					"goto": "send_sms",
+					"delete_context": ["password2"]
+				}
+			]
+		},
+		{
+			"tag": "prepareIndex",
+			"context_opers":[
+				"{{set \"normal_index_url\" \"https://shop.jd.com/index.action\"}}",
+				"{{add \"index_try_times\" 1}}",
+				"{{set \"temp\" \"\"}}",
+				"{{if notEmpty \"new_domain\"}}{{joinString .new_domain \"/\" .refreshTag | set \"temp\"}}{{end}}",
+				"{{and (notEmpty \"new_domain\") (notEmpty \"refreshTag\") | whichOne \"{{.temp}}\" \"\" | set \"new_index_url\"}}"
+			]
+		},
+		{
+			"tag":"indexPage",
+            "page":"{{empty \"new_index_url\" | whichOne \"{{.normal_index_url}}\" \"{{.new_index_url}}\" }}",
+            "method":"GET",
+			"header":{
+				"Host":"shop.jd.com"
+			},
+            "response_timeout": 3,
+            "visit_times": 3,
+			"doc_type": "html",
+			"output_filename": "index.html",
+            "context_opers": [
+                "{{extractRegex \"(员工管理)\" ._body | set \"accountManager\"}}",
+                "{{extractRegex \"EQUIV=\\\"Refresh\\\"\\\\s+.*URL=(.*)\\\"\" ._body | set \"refreshTag\"}}",
+                "{{extractHtml \".user-menu-list .sub-item:contains('店铺名称') .mini-bd a&attr=title\" ._body | set \"shopName\"}}",
+                "{{extractHtml \".user-menu-list .sub-item:contains('商家ID') .mini-bd\" ._body | set \"shop_id\"}}",
+                "{{extractHtml \".user-menu-list .sub-item:contains('店铺ID') .mini-bd\" ._body | set \"shopId2\"}}",
+                "{{joinString .shop_id .shopId2 | set \"username\"}}",
+                "{{extractHtml \"tr:contains('店铺名称') td @slice=1:2\" ._body | set \"bak_shopName\"}}",
+                "{{extractHtml \"tr:contains('店铺名称') td @slice=3:4\" ._body | set \"bak_shopId\"}}",
+                "{{if empty \"shopName\"}}{{set \"shopName\" .bak_shopName}}{{end}}",
+                "{{if empty \"shopId2\"}}{{set \"shopId2\" .bak_shopId}}{{end}}",
+                "{{if empty \"shop_id\"}}{{set \"shop_id\" .bak_shopId}}{{end}}",
+                "{{if empty \"username\"}}{{set \"username\" .bak_shopId}}{{end}}",
+                "{{set \"fileindex\" -1}}",
+                "{{extractHtml \"title\" ._body | set \"h_title\"}}"
+            ],
+            "actions": [
+                {
+                    "condition": "{{and (notEmpty \"refreshTag\") (lt .index_try_times 5)}}",
+                    "delete_extract": ["username", "index"],
+                    "goto": "prepareIndex"
+                },
+                {
+                    "condition": "{{and (empty \"shop_id\") (contains \"seller.user.not.exist\" .h_title)}}",
+                    "message": {
+                   	    "status": "fail",
+                   	    "data": "请用商家账号登录"
+                	}
+                },
+                {
+                    "condition": "{{and (empty \"shop_id\") (contains \"欢迎登录\" .h_title)}}",
+                    "message": {
+                   	    "status": "fail",
+                   	    "data": "登录凭证错误，登录失败"
+                    }
+                },
+                {
+                    "condition": "{{empty \"accountManager\"}}",
+                        "message": {
+                        "status": "fail",
+                        "data": "请使用主账号登录"
+                    }
+                },
+                {
+                    "condition": "{{empty \"username\"}}",
+                        "message": {
+                        "status": "fail",
+                        "data": "自营店铺无权限查看商家后台"
+                    }
+                }
+            ],
+            "extractor": {
+                "username": "c:{{.username}}",
+                "index":{
+                    "shopName": "c:{{.shopName}}",
+                    "shopType": "li.item03:contains('商家类型：') span.mini-bd",
+                    "shopId": "c:{{.shopId2}}",
+                    "remDays": "li.item04:contains('合同剩余天数：') span.mini-bd"
+                }
+            },
+            "message": {
+                "status": "login_success",
+                "data": "{\"username\":\"{{.username}}\",\"shopid\": \"{{.shopId2}}\", \"wangwang\": \"{{.shopName}}\", \"shop_name\": \"{{.shopName}}\"}"
+            }
+        },
+		{
+			"tag": "seller_info",
+			"condition": "{{notEmpty \"shop_id\"}}",
+			"page":"http://seller.shop.jd.com/seller/sellerinfo/seller_info.action",
+			"method":"GET",
+			"doc_type": "html",
+			"output_filename": "seller_info.html",
+			"context_opers": [
+				"{{extractHtml \"table.fe-fm-table tr:contains('公司名称：') @index=0 td\" ._body | len | set \"col_no\"}}",
+				"{{eq .col_no 4 | set \"is_seller_info_v2\"}}",
+				"{{set \"seller_info_body\" ._body}}",
+				"{{set \"tips\" \"当表格有4列时，表示是另一种布局，需要用v2方式抽取\"}}"
+			],
+			"extractor":{
+				"seller_info":{
+					"companyName": "tr:contains('公司名称：') td",
+					"taxPayer": "tr:contains('纳税人识别号：') td",
+					"companyType": "tr:contains('企业类型：') td @index=0",
+					"detailedAddress": "tr:contains('公司详细地址：') td",
+					"companyPhone": "tr:contains('公司电话：') td",
+					"emergencyContact": "tr:contains('公司紧急联系人：') td",
+					"emergencyContactPhone": "tr:contains('公司紧急联系人手机：') td",
+					"administrator": "tr:contains('开户名：') td @index=0",
+					"bankBranch": "tr:contains('开户行支行名称：') td @index=0",
+					"bankAccount": "tr:contains('银行账号：') td"
+				}
+			},
+			"login_success": true,
+			"actions": [
+				{
+					"condition": "{{.is_seller_info_v2}}",
+					"delete_extract": ["seller_info"],
+					"goto": "seller_info_v2"
+				}
+			]
+		},
+		{
+			"tag": "seller_info_v2",
+			"condition": "{{.is_seller_info_v2}}",
+			"extractor_source": "{{.seller_info_body}}",
+			"doc_type": "html",
+			"output_filename": "seller_info.v2.html",
+			"context_opers": [
+				"{{extractHtml \"table.fe-fm-table tr:contains('公司名称：') @index=0 td\" ._body | set \"tds\"}}",
+				"{{range $idx, $ele := .tds}}{{if contains \"公司名称\" $ele}}{{plus $idx 1 | index (get \"tds\") | set \"companyName\"}}{{else if contains \"营业执照\" $ele}}{{plus $idx 1 | index (get \"tds\") | set \"licenseNo\"}}{{end}}{{end}}",
+				"{{extractHtml \"table.fe-fm-table tr:contains('详细地址') @index=0 td\" ._body | set \"tds\"}}",
+				"{{range $idx, $ele := .tds}}{{if contains \"详细地址\" $ele}}{{plus $idx 1 | index (get \"tds\") | set \"detailedAddress\"}}{{else if contains \"法定代表\" $ele}}{{plus $idx 1 | index (get \"tds\") | set \"legalPerson\"}}{{end}}{{end}}",
+				"{{extractHtml \"table.fe-fm-table tr:contains('开户名') @index=0 td\" ._body | set \"tds\"}}",
+				"{{range $idx, $ele := .tds}}{{if contains \"开户名\" $ele}}{{plus $idx 1 | index (get \"tds\") | set \"administrator\"}}{{else if contains \"银行账号\" $ele}}{{plus $idx 1 | index (get \"tds\") | set \"bankAccount\"}}{{end}}{{end}}",
+				"{{extractHtml \"table.fe-fm-table tr:contains('开户行支行') @index=0 td\" ._body | set \"tds\"}}",
+				"{{range $idx, $ele := .tds}}{{if contains \"开户行支行名称\" $ele}}{{plus $idx 1 | index (get \"tds\") | set \"bankBranch\"}}{{else if contains \"支行联行号\" $ele}}{{plus $idx 1 | index (get \"tds\") | set \"bankBranchNo\"}}{{end}}{{end}}",
+				"{{extractHtml \"table.fe-fm-table tr:contains('联系电话') @index=0 td\" ._body | set \"tds\"}}",
+				"{{range $idx, $ele := .tds}}{{if contains \"联系电话\" $ele}}{{plus $idx 1 | index (get \"tds\") | set \"companyPhone\"}}{{else if contains \"负责人证件\" $ele}}{{plus $idx 1 | index (get \"tds\") | set \"legalPersonIdNo\"}}{{end}}{{end}}"
+			],
+			"extractor":{
+				"seller_info":{
+					"companyName": "c:{{.companyName}}",
+					"taxPayer": "c:{{.licenseNo}}",
+					"companyType": "tr:contains('企业类型：') td @index=0",
+					"detailedAddress": "c:{{.detailedAddress}}",
+					"companyPhone": "c:{{.companyPhone}}",
+					"emergencyContact": "tr:contains('公司紧急联系人：') td",
+					"emergencyContactPhone": "tr:contains('公司紧急联系人手机：') td",
+					"legalPersonIdNo": "c:{{.legalPersonIdNo}}",
+					"administrator": "c:{{.administrator}}",
+					"bankBranch": "c:{{.bankBranch}}",
+					"bankAccount": "c:{{.bankAccount}}",
+					"bankBranchNo": "c:{{.bankBranchNo}}"
+				}
+			}
+		},
+		{
+			"condition": "{{notEmpty \"shop_id\"}}",
+			"page":"http://seller.shop.jd.com/vender/qua/company/index.action",
+			"method":"GET",
+			"doc_type": "html",
+			"output_filename": "company_info.html",
+			"extractor":{
+				"company_info":{
+					"companyName": "tr:contains('公司名称：') td @index=0",
+					"businessLicense": "tr:contains('注册号(营业执照号)') td @index=0",
+					"legalPerson": "tr:contains('法定代表人姓名') td @index=0",
+					"cid": "tr:contains('身份证号') td @index=0",
+					"registerDate": "tr:contains('成立日期') td @index=0",
+					"registeredCapital": "tr:contains('注册资本') td @index=0",
+					"businessScope": "tr:contains('经营范围') td @index=0",
+					"companyCode": "tr:contains('组织机构代码') td @index=0",
+					"companyCodeValidity": "tr:contains('组织机构代码证有效期') td @index=0"
+				}
+			}
+		},
+		{
+			"condition": "{{notEmpty \"shop_id\"}}",
+			"page":"http://seller.shop.jd.com/vender/qua/shop/index.action",
+			"method":"GET",
+			"doc_type": "html",
+			"output_filename": "shop_info.html",
+			"extractor":{
+				"shop_info":{
+					"mainBusiness": ":this&attr=html&regex=主营类目：</span>\\s*([^\\s]+)",
+					"shopType": "tr:contains('店铺类型：') td @index=0"
+				}
+			}
+		},
+		{
+			"condition": "{{notEmpty \"shop_id\"}}",
+			"page":"http://seller.shop.jd.com/seller/venderContact/venderContact_shopBaseInfo.action",
+			"method":"GET",
+			"doc_type": "html",
+			"output_filename": "shop_base_info.html",
+			"extractor":{
+				"shop_base_info":{
+					"principal": "div.cm-dashed-box:contains('店铺负责人') tr:contains('姓名：') td @index=0",
+					"principalPhone": "div.cm-dashed-box:contains('店铺负责人') tr:contains('姓名：') td @index=1",
+					"director": "div.cm-dashed-box:contains('运营联系人') tr:contains('姓名：') td @index=0",
+					"directorPhone": "div.cm-dashed-box:contains('运营联系人') tr:contains('姓名：') td @index=1",
+					"aftermarket": "div.cm-dashed-box:contains('售后联系人') tr:contains('姓名：') td @index=0",
+					"aftermarketPhone": "div.cm-dashed-box:contains('售后联系人') tr:contains('姓名：') td @index=1"
+				}
+			}
+		},
+		{
+			"condition": "{{notEmpty \"shop_id\"}}",
+			"page":"http://seller.shop.jd.com/venderTakeAddress/listAllSopVenderTakeAddress.action",
+			"method":"GET",
+			"doc_type": "html",
+			"output_filename": "take_address.html",
+			"extractor":{
+				"take_address":{
+					"_root": "table#tbl_type tbody tr",
+					"_array": true,
+					"detailedAddress": "td @index=1",
+					"contactPhone": "td @index=3",
+					"contact": "td @index=4"
+				}
+			}
+		},
+		{
+			"condition": "{{notEmpty \"shop_id\"}}",
+			"page":"http://seller.shop.jd.com/venderAccountSecurity/venderAccountSecurity_list.action",
+			"method":"GET",
+			"doc_type": "html",
+			"output_filename": "account_security_list.html",
+			"extractor":{
+				"account_security_list":{
+					"_root":"table.grid-1 tbody tr",
+					"_array": true,
+					"account":"td @index=0",
+					"name":"td @index=1",
+					"phone":"td @index=3&regex=([0-9]+)"
+				}
+			}
+		},
+		{
+			"condition": "{{notEmpty \"shop_id\"}}",
+			"page":"http://wuxian.jd.com/index/getVenderInfo.action",
+			"method":"GET",
+			"doc_type": "html",
+			"output_filename": "vender_info.html",
+			"extractor":{
+				"vender_info":{
+					"shopNumber":".ainfo:contains('商家编号') ~ div @index=0&regex=(\\d+)",
+					"shopType":".ainfo:contains('商家类型') ~ div @index=0&regex=(\\w+)",
+					"companyName":".ainfo:contains('公司名称') ~ div @index=0&regex=([^<]+)",
+					"businessLicense":".ainfo:contains('营业执照号') ~ div @index=0&regex=(\\d+)",
+					"businessLicenseValidity":".ainfo:contains('营业执照号有效期') ~ div @index=0&regex=([^<]+)",
+					"legalPerson":".ainfo:contains('法定代表人姓名') ~ div @index=0&regex=([^<]+)",
+					"businessScope":".ainfo:contains('经营范围') ~ div @index=0&regex=([^<]+)",
+					"registeredCapital":".ainfo:contains('注册资本') ~ div @index=0&regex=([^\\s]+)",
+					"companyCode":".ainfo:contains('组织机构代码') ~ div @index=0&regex=([^<]+)",
+					"taxpayerCode":".ainfo:contains('纳税人识别号') ~ div @index=0&regex=(\\d+)",
+					"bankUsername":".ainfo:contains('银行开户名') ~ div @index=0&regex=([^<]+)",
+					"bankAccount":".ainfo:contains('公司银行账号') ~ div @index=0&regex=(\\d+)",
+					"straightAccount":".ainfo:contains('银企直联账号') ~ div @index=0&regex=(\\d+)",
+					"contact":".ainfo:contains('联系人') ~ div @index=0&regex=([^<]+)",
+					"contactPhone":".ainfo:contains('联系电话') ~ div @index=0&regex=([^<]+)",
+					"contactEmail":".ainfo:contains('联系人邮箱') ~ div @index=0&regex=([^<]+)",
+					"companyAddress":".ainfo:contains('公司地址') ~ div @index=0&regex=([^<]+)",
+					"companyPhone":".ainfo:contains('公司电话') ~ div @index=0&regex=([^<]+)"
+				}
+			}
+		},
+		{
+			"context_opers": [
+				"{{add \"monthSub\" 0}}",
+				"{{mul .monthSub -1 | set \"negMonthSub\"}}",
+				"{{add \"extractIndex\" 0}}"
+			]
+		},
+		{
+			"tag": "SzMonthlyResult",
+			"condition": "{{notEmpty \"shop_id\"}}",
+			"page": "https://sz.jd.com/trade/getSummaryData.ajax?channel=99&date={{firstDayOfMonthAgo .negMonthSub \"200601\"}}&endDate={{lastDayOfMonthAgo .negMonthSub \"2006-01-02\" false}}&startDate={{firstDayOfMonthAgo .negMonthSub \"2006-01\"}}-01",
+			"method": "GET",
+			"doc_type": "json",
+			"output_filename": "sz_trade_{{.monthSub}}.json",
+			"extractor":{
+				"opermodel_{{.extractIndex}}": {
+					"data": "*",
+					"month":"c:{{getMonthDate .monthSub \"2006-01\"}}"
+				}
+			},
+			"context_opers":[
+				"{{set \"last_body\" ._body}}",
+				"{{set \"temp\" .new_domain}}"
+			],
+			"actions": [
+				{
+					"condition": "{{gt .monthSub -14}}",
+					"opers":[
+						"{{add \"monthSub\" -1}}",
+						"{{mul .monthSub -1 | set \"negMonthSub\"}}",
+						"{{add \"extractIndex\" 1}}"
+					],
+					"goto": "SzMonthlyResult"
+				}
+			]
+		},
+		{
+			"condition":"{{notEmpty \"shop_id\"}}",
+			"doc_type":"html",
+			"extractor":{
+				"has_sz":"c:{{not (contains \"尚未订购\" .last_body)}}"
+			}
+		},
+		{
+			"context_opers": [
+				"{{set \"monthSub\" 0}}",
+				"{{mul .monthSub -1 | set \"negMonthSub\"}}",
+				"{{set \"extractIndex\" 0}}"
+			]
+		},
+		{
+			"tag":"afterMonthlyResult",
+			"condition": "{{notEmpty \"shop_id\"}}",
+			"page": "https://sz.jd.com/afterSale/dataSummary.ajax?date={{firstDayOfMonthAgo .negMonthSub \"200601\"}}&endDate={{lastDayOfMonthAgo .negMonthSub \"2006-01-02\" false}}&startDate={{firstDayOfMonthAgo .negMonthSub \"2006-01\"}}-01",
+			"method": "GET",
+			"doc_type": "json",
+			"output_filename": "sz_after_{{.negMonthSub}}.json",
+			"extractor":{
+				"refund_{{.extractIndex}}": {
+					"data": "*",
+					"month":"c:{{getMonthDate .monthSub \"2006-01\"}}"
+				}
+			},
+			"actions": [
+				{
+					"condition": "{{gt .monthSub -12}}",
+					"opers":[
+						"{{add \"monthSub\" -1}}",
+						"{{mul .monthSub -1 | set \"negMonthSub\"}}",
+						"{{add \"extractIndex\" 1}}"
+					],
+					"goto": "afterMonthlyResult"
+				}
+			]
+		},
+		{
+			"condition": "{{notEmpty \"shop_id\"}}",
+			"page":"http://mall.jd.com/shopLevel-{{.shop_id}}.html",
+			"method":"GET",
+			"doc_type": "html",
+            "context_opers": [
+                "{{extractHtml \".total-score-num&regex=([0-9\\\\.]*)\" ._body | set \"shopId_score\"}}",
+                "{{set \"shopId_body\" ._body}}"
+            ],
+			"output_filename": "shopLevel.html"
+		},
+		{
+			"condition": "{{and (notEmpty \"shopId2\") (empty \"shopId_score\")}}",
+			"page":"http://mall.jd.com/shopLevel-{{.shopId2}}.html",
+            "header": {
+                "Accept-Encoding": "identity"
+            },
+			"method":"GET",
+			"doc_type": "html",
+            "context_opers": [
+                "{{set \"shopId_body\" ._body}}"
+            ],
+			"output_filename": "shopLevel.html"
+		},
+		{
+			"condition": "{{notEmpty \"shop_id\"}}",
+			"extractor_source": "{{.shopId_body}}",
+			"extractor":{
+				"O_SHOPLEVEL_HTML": {
+					"综合评分": {
+						"店铺综合评分": ".total-score-num&regex=(.*)",
+						"同行业平均水平": ".total-score-view .score-des .percent"
+					},
+					"180天内店铺动态评分": {
+						"_root": ".item-180",
+						"@key .label": ".score-180&regex=(.*)",
+						"@key .score-des span @index=0": ".score-des .percent"
+					},
+					"90天内平台监控店铺服务": {
+						"_root": ".service-data",
+						"@key .name": {
+							"本店": ".service-des-self .value",
+							"结果": ".result",
+							"行业平均值": ".service-des-others .value"
+						}
+					}
+				}
+			}
+		},
+		{
+			"condition": "{{notEmpty \"shop_id\"}}",
+			"page":"http://crm.shop.jd.com/crm/customerManager/customer_init.action",
+			"method":"POST",
+			"params":{
+				"customerQuery.minTotalOrderPrice":"1000",
+				"customerQuery.pageType":"1"
+			},
+			"doc_type": "html",
+			"output_filename": "customer_init_money.html",
+			"extractor":{
+				"customer_init_money":{
+					"_root":"#pictable tbody tr",
+					"_array": true,
+					"user-name":"td @index=1",
+					"user-value":"td @index=5",
+					"cnt":"td @index=6",
+					"amt":"td @index=7",
+					"update":"td @index=10"
+				}
+			}
+		},
+		{
+			"condition": "{{notEmpty \"shop_id\"}}",
+			"page":"http://crm.shop.jd.com/crm/customerManager/customer_init.action",
+			"method":"POST",
+			"params":{
+				"customerQuery.minTotalOrderCount":"10",
+				"customerQuery.pageType":"1"
+			},
+			"doc_type": "html",
+			"output_filename": "customer_init_count.html",
+			"extractor":{
+				"customer_init_count":{
+					"_root":"#pictable tbody tr",
+					"_array": true,
+					"user-name":"td @index=1",
+					"user-value":"td @index=5",
+					"cnt":"td @index=6",
+					"amt":"td @index=7",
+					"update":"td @index=10"
+				}
+			}
+		},
+		{
+			"condition": "{{notEmpty \"shop_id\"}}",
+			"page":"http://legal.shop.jd.com/penalty/penalty_penaltyList.action",
+			"method":"GET",
+			"doc_type": "html",
+			"output_filename": "penalty_penalty_list.html",
+            "extractor": {
+				"penalty_penalty_list":{
+                    "punish_normal_amt": ".score-wrap p:contains('一般违规累计扣分') span",
+					"punish_serious_amt": ".score-wrap p:contains('严重违规累计扣分') span"
+				}
+			}
+		},
+		{
+			"condition": "{{notEmpty \"shop_id\"}}",
+			"page":"http://legal.shop.jd.com/penalty/penalty_penaltyQueryList.action",
+			"method":"GET",
+			"doc_type": "html",
+			"output_filename": "penalty_penalty_Query_list.html",
+            "extractor": {
+				"penalty_penalty_query_list":{
+					"punish_detail_list":{
+						"_root":".fe-table01 tbody tr:not(:contains('无违约记录'))",
+						"_array": true,
+						"id":"td @index=0",
+						"act":"td @index=1",
+						"type":"td @index=2",
+						"amt":"td @index=3",
+						"time":"td @index=5",
+						"status":"td @index=7"
+					}
+				}
+			}
+		},
+		{
+			"condition": "{{notEmpty \"shop_id\"}}",
+			"page":"http://loan.jd.com/index.htm?from=shop",
+			"method":"GET",
+			"doc_type": "html",
+			"output_filename": "loan.html",
+			"extractor":{
+				"loan_index":{
+					"msg": "div.module-1-tabs-1-error-cont:contains('很遗憾') strong.c-red @index=0",
+					"loanBalance": "div.inline-item-text:contains('当前可贷') div.item-box"
+				}
+			}
+		},
+      	{
+			"page":"http://jzt.jd.com/v/subAccount/info",
+			"method":"GET",
+			"doc_type": "html",
+			"output_filename":"sub_account.html",
+			"extractor":{
+				"sub_account":{
+					"accountMoney":"li:contains('账户金额') em @index=0&regex=([^￥]+)",
+					"availableMoney":"li:contains('可用金额') em @index=0&regex=([^￥]+)",
+					"freezeMoney":"li:contains('冻结金额') em&regex=([^￥]+)",
+					"accountTodayCost":".accountTodayCost&regex=([^￥]+)",
+					"redPacket":"li:contains('直投账户金额') em&regex=([^￥]+)",
+					"awardTodayCost":".awardTodayCost&regex=([^￥]+)"
+				}
+			}
+		},
+		{
+			"condition": "{{notEmpty \"shop_id\"}}",
+			"page":"http://loan.jd.com/center/info.htm",
+			"method":"GET",
+			"doc_type": "html",
+			"output_filename":"xd_info.htm",
+            "extractor": {
+				"xd_info":{
+					"credit":"h2:contains('信用贷可用额度') em",
+					"order_loan": "h2:contains('订单贷可用额度') em",
+					"loan_balance":".mright-l p.fl:contains('待还总金额') em",
+					"cash":".mright-r h3",
+					"pending_number": ".mright-l p:contains('待还笔数') em",
+					"overdue_number": ".mright-l p:contains('逾期笔数') em",
+					"pending_overdue_balance": ".mright-l p:contains('待还逾期金额') em"
+				}
+			}
+		},
+		{
+			"tag":"crawl_apply",
+			"condition": "{{notEmpty \"shop_id\"}}",
+			"page":"http://loan.jd.com/center/loan.htm?v={{nowMillTimestamp}}",
+			"method":"POST",
+            "params": {
+				"modu": "1000",
+				"page": "{{if empty \"currentPageIndex\"}}1{{else}}{{.currentPageIndex}}{{end}}"
+            },
+			"doc_type": "html",
+			"output_filename":"xd_apply.htm",
+            "context_opers": [
+                "{{extractRegex \"pageTotal : ([0-9]+),\" ._body | stringToInt | set \"pageTotal\"}}",
+                "{{if empty \"currentPageIndex\"}}{{set \"currentPageIndex\" 1}}{{end}}",
+                "{{add \"currentPageIndex\" 1}}"
+            ],
+            "extractor": {
+				"xd_apply":{
+					"_root":"tr:contains('明细')",
+					"_array": true,
+					"loan_date":"td @index=0",
+					"amt":"td @index=2",
+					"due_date":"td @index=3",
+					"pay_type":"td @index=4",
+					"status":"td @index=5"
+				}
+			},
+			"actions":[
+				{
+					"condition": "{{and (lt .currentPageIndex \"pageTotal\") (lt .currentPageIndex 10)}}",
+					"goto":"crawl_apply"
+				}
+			]
+		},
+		{
+			"tag":"overrepay_type",
+            "context_opers": [
+                "{{add \"repay_type\" 1}}"
+            ]
+		},
+		{
+			"tag":"crawl_overrepay",
+			"condition": "{{notEmpty \"shop_id\"}}",
+			"page":"http://loan.jd.com/center/over.htm?v={{nowMillTimestamp}}",
+			"method":"POST",
+            "params": {
+				"modu": "1000",
+				"page": "{{if empty \"overRepayIndex\"}}1{{else}}{{.overRepayIndex}}{{end}}",
+				"s": "0{{.repay_type}}"
+            },
+			"doc_type": "html",
+			"output_filename":"xd_overrepay1.htm",
+            "context_opers": [
+                "{{extractRegex \"pageTotal : ([0-9]+),\" ._body | stringToInt | set \"overRepayTotal\"}}",
+                "{{if empty \"overRepayIndex\"}}{{set \"overRepayIndex\" 1}}{{end}}",
+                "{{add \"overRepayIndex\" 1}}"
+            ],
+            "extractor": {
+				"xd_overrepay{{.repay_type}}":{
+					"_root":"tr:contains('明细')",
+					"_array": true,
+					"loan_date":"td @index=0",
+					"due_date":"td @index=3",
+					"amt":"td @index=4",
+					"overdue_days":"td @index=6",
+					"status":"td @index=7"
+				}
+			},
+			"actions":[
+				{
+					"condition": "{{and (lt .overRepayIndex \"overRepayTotal\") (lt .overRepayIndex 10)}}",
+					"goto":"crawl_overrepay"
+				},
+				{
+					"condition": "{{lt .repay_type 2}}",
+					"goto":"overrepay_type"
+				}
+			]
+		},
+		{
+			"condition": "{{notEmpty \"shop_id\"}}",
+            "page":"http://loan.jd.com/company/info.htm",
+            "method":"GET",
+			"doc_type": "html",
+            "output_filename":"loan_company_info.htm",
+            "extractor": {
+                "loan_company_info":{
+                   "shop_name":".info-list-con li:contains('店铺名称') .info-con",
+  					"company_name":".info-list-con li:contains('企业名称') .info-con",
+                   "company_addr":".info-list-con li:contains('企业地址') .info-con",
+                   "legal_person":".info-list-con li:contains('法定代表人姓名') .info-con",
+                   "account_company":".info-list-con li:contains('京东钱包企业账号') .info-con",
+                   "tele":"span#phone-num"
+                }
+            }
+        },
+        {
+            "message": {
+                "status": "finish_fetch_data",
+                "data": "{\"username\": \"{{.username}}\"}"
+            }
+        }
+    ]
+}

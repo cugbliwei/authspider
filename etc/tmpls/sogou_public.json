@@ -1,0 +1,115 @@
+{
+  "disable_outpubkey": true,
+  "steps": [
+    {
+      "need_param": "name",
+      "context_opers": [
+        "{{set \"username\" .name}}",
+        "{{add \"times\" 1}}",
+        "{{randIntn 19 | plus 1 | set \"idx\"}}"
+      ]
+    },
+    {
+      "get_from_redis": "sogou_cookie_{{.idx}}",
+      "use_cookie": "{{._body}}"
+    },
+    {
+      "tag": "query_page",
+      "page": "http://weixin.sogou.com/weixin?type=1&s_from=input&query={{.name}}&ie=utf8&_sug_=n&_sug_type_=",
+      "header": {
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.113 Safari/537.36",
+        "Referer": "http://weixin.sogou.com/weixin?type=1&s_from=input&query={{.name}}&ie=utf8&_sug_=n&_sug_type_="
+      },
+      "method": "GET",
+      "response_timeout": 30,
+      "visit_times": 1,
+      "sleep": 1,
+      "context_opers": [
+        "{{randIntn 19 | plus 1 | set \"idx\"}}",
+        "{{extractHtml \".news-list2 a @index=0&attr=href\" ._body | set \"fetch_url\"}}"
+      ],
+      "actions": [
+        {
+          "condition": "{{contains \"请输入验证码\" ._body}}",
+          "goto": "change_sogou_cookie"
+        },
+        {
+          "condition": "{{notEmpty \"fetch_url\" }}",
+          "goto": "fetch_article"
+        }
+      ]
+    },
+    {
+      "tag": "fetch_article",
+      "page": "{{.fetch_url}}",
+      "method": "GET",
+      "response_timeout": 30,
+      "visit_times": 1,
+      "sleep": 1,
+      "doc_type": "json",
+      "output_filename": "sogou_public_{{.name}}.html",
+      "context_opers": [
+        "{{randIntn 19 | plus 1 | set \"idx\"}}",
+        "{{extractRegex \"var[\\\\s]+msgList[\\\\s]+=[\\\\s]+(.*);\" ._body | set \"source\"}}"
+      ],
+      "extractor_source": "{{.source}}",
+      "extractor": {
+        "query": "c:{{.name}}",
+        "records": {
+          "data": {
+            "_root": "list",
+            "_array": true,
+            "标题": "app_msg_ext_info.title&parse={{htmlUnscape ._json_body}}",
+            "文章简介": "app_msg_ext_info.digest&parse={{htmlUnscape ._json_body}}",
+            "原创状态": "app_msg_ext_info.copyright_stat",
+            "上传时间": "comm_msg_info.datetime&parse={{timestampToString \"2006-01-02 15:04:05\" ._json_body}}",
+            "文章详情": {
+              "_context": [
+                {
+                  "_key": "detail_url",
+                  "_value": "app_msg_ext_info.content_url"
+                }
+              ],
+              "_url": "http://authcrawler.yixin.com/submit?tmpl=zhiwang_weixin&query={{urlQueryEscape .name}}&url=https%3A%2F%2Fmp.weixin.qq.com{{htmlUnscape .detail_url | urlQueryEscape}}",
+              "_next": "http://authcrawler.yixin.com/submit?id="
+            }
+          }
+        }
+      },
+      "actions": [
+        {
+          "condition": "{{contains \"请输入验证码\" ._body}}",
+          "goto": "change_weixin_cookie"
+        }
+      ]
+    },
+    {
+      "tag": "change_sogou_cookie",
+      "get_from_redis": "sogou_cookie_{{.idx}}",
+      "use_cookie": "{{._body}}",
+      "actions": [
+        {
+          "condition": "{{lt .times 10}}",
+          "opers": [
+            "{{add \"times\" 1}}"
+          ],
+          "goto": "query_page"
+        }
+      ]
+    },
+    {
+      "tag": "change_weixin_cookie",
+      "get_from_redis": "sogou_cookie_{{.idx}}",
+      "use_cookie": "{{._body}}",
+      "actions": [
+        {
+          "condition": "{{lt .times 10}}",
+          "opers": [
+            "{{add \"times\" 1}}"
+          ],
+          "goto": "fetch_article"
+        }
+      ]
+    }
+  ]
+}

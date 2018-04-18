@@ -1,0 +1,159 @@
+{
+    "casperjs_script": "gjp_login.js",
+    "disable_casperjs_proxy": true,
+    "steps": [
+        {
+            "need_param": "username,password,company",
+            "get_from_redis": "guanjiapo_{{.company}}_{{.username}}",
+            "context_opers": [
+                "{{len ._body | set \"tmp_result_length\"}}"
+            ]
+        },
+        {
+            "tag": "read_param",
+            "context_opers": [
+                "{{readCasper | set \"casper_param\"}}"
+            ],
+            "actions": [
+                {
+                    "condition": "{{gt .tmp_result_length 500}}",
+                    "opers": [
+                        "{{joinString .company \"_\" .username | set \"username\"}}"
+                    ],
+                    "goto": "callback"
+                },
+                {
+                    "condition": "{{hasPrefix .casper_param \"need_path\"}}",
+                    "opers": [
+                        "{{joinString \"path###\" ._path | set \"path_params\"}}",
+                        "{{writeCasper .path_params}}"
+                    ],
+                    "goto": "read_param"
+                },
+                {
+                    "condition": "{{hasPrefix .casper_param \"need_username\"}}",
+                    "opers": [
+                        "{{joinString  \"username###\" .username \"###\" .password \"###\" .company| set \"login_params\"}}",
+                        "{{writeCasper .login_params}}"
+                    ],
+                    "goto": "read_param"
+                },
+                {
+                    "condition": "{{hasPrefix .casper_param \"fail\"}}",
+                    "opers": [
+                        "{{getCasperMsg .casper_param \";\" | set \"casper_msg\"}}",
+                        "{{joinString .company \" \" .username \"用户授权登录失败: \" .casper_msg | set \"email_body\"}}",
+                        "{{sendToMail \"mail.bdp.idc:25\" \"std-exception@bdp.yixin.com\" \"\" \"weili105@creditease.cn;kangwang22@creditease.cn;chengbofu@creditease.cn;cbdic.std.pm.list@creditease.cn\" \"plain\" \"管家婆爬虫抓取失败\" .email_body}}"
+                    ],
+                    "message": {
+                        "status": "fail",
+                        "data": "{{.casper_msg}}"
+                    }
+                },
+                {
+                    "condition": "{{hasPrefix .casper_param \"need_sms\"}}",
+                    "opers": [
+                        "{{getCasperMsg .casper_param \";\" | set \"phone_number\"}}",
+                        "{{add \"sms_times\" 1}}"
+                    ],
+                    "message": {
+                        "need_param": "password2",
+                        "status": "need_param",
+                        "data": "{{.phone_number}}"
+                    },
+                    "goto": "sms"
+                },
+                {
+                    "condition": "{{and (hasPrefix .casper_param \"wrong_password2\") (lt 2 .sms_times)}}",
+                    "message": {
+                        "status": "fail",
+                        "data": "短信码错误次数过多"
+                    }
+                },
+                {
+                    "condition": "{{hasPrefix .casper_param \"wrong_password2\"}}",
+                    "delete_context": ["password2"],
+                    "opers": [
+                        "{{add \"sms_times\" 1}}"
+                    ],
+                    "message": {
+                        "need_param": "password2",
+                        "status": "wrong_second_password",
+                        "data": "{{.phone_number}}"
+                    },
+                    "goto": "sms"
+                },
+                {
+                    "condition": "{{hasPrefix .casper_param \"version###\"}}",
+                    "opers": [
+                        "{{getCasperMsg .casper_param \"###\" | set \"version\"}}"
+                    ],
+                    "goto": "read_param"
+                },
+                {
+                    "condition": "{{hasPrefix .casper_param \"cookie###\"}}",
+                    "opers": [
+                        "{{getCasperMsg .casper_param \"###\" | set \"casper_cookies\"}}"
+                    ],
+                    "goto": "casper_login_success"
+                }
+            ]
+        },
+        {
+            "tag": "sms",
+            "need_param": "password2",
+            "context_opers": [
+                "{{joinString \"sms###\" .password2 | set \"sms_params\"}}",
+                "{{writeCasper .sms_params}}"
+            ],
+            "actions": [
+                {
+                    "condition": "{{eq 1 1}}",
+                    "goto": "read_param"
+                }
+            ]
+        },
+        {
+            "tag": "casper_login_success",
+            "use_cookie": "{{.casper_cookies}}",
+            "context_opers": [
+                "{{joinString .company \"_\" .username | set \"username\"}}"
+            ],
+            "message": {
+                "status": "login_success",
+                "data": "{\"company\": \"{{.company}}\"}"
+            },
+            "doc_type": "html",
+            "login_success": true,
+            "extractor": {
+                "username": "c:{{.username}}",
+                "cookies": "c:{{.casper_cookies}}",
+                "version": "c:{{.version}}"
+            }
+        },
+        {
+            "use_python": "guanjiapo/guanjiapo.py"
+        },
+        {
+            "message": {
+                "status": "finish_fetch_data",
+                "data": "{\"username\": \"{{.username}}\"}"
+            }
+        },
+        {
+            "tag": "callback",
+            "message": {
+                "status": "login_success",
+                "data": "{\"company\": \"{{.company}}\"}"
+            },
+            "login_success": true
+        },
+        {
+            "tag": "callback_finish",
+            "message": {
+                "status": "finish_fetch_data",
+                "data": "{\"username\": \"{{.username}}\"}"
+            }
+        }
+    ]
+}

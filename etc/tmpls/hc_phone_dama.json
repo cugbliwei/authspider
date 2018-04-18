@@ -1,0 +1,299 @@
+{
+    "disable_output_folder": true,
+    "steps": [
+        {
+            "need_param": "username,password,name,idNumber",
+            "get_from_redis": "hc_phone_{{.username}}",
+            "actions": [
+                {
+                    "condition": "{{or (eq ._body \"error\") (len ._body | gt 1000)}}",
+                    "goto": "begin_login"
+                }
+            ],
+            "message": {
+                "status": "finish_fetch_data",
+                "data": "抓取成功"
+            }
+        },
+        {
+            "tag": "begin_login",
+            "context_opers": [
+                "{{hexEncodeToString .username | set \"userCode\"}}",
+                "{{set \"file_suffix\" \"login\"}}",
+                "{{set \"dama_times\" 0}}",
+                "{{mapToString \"op\" \"collect\" \"sourceCode\" \"jhjjH5\" \"userCode\" .userCode \"username\" .username \"password\" .password \"name\" .name \"idNumber\" .idNumber | encryptString .JhjjPublicKey | set \"codeEns\"}}"
+            ],
+            "actions": [
+                {
+                    "condition": "{{eq \"1\" \"1\"}}",
+                    "goto": "submit"
+                }
+            ]
+        },
+        {
+            "tag": "first_captcha",
+            "context_opers": [
+                "{{set \"file_suffix\" \"first_captcha\" | set \"first_captcha\"}}",
+                "{{uploadVerifyCode .code | set \"randcodeUrl\"}}"
+            ],
+            "actions": [
+                {
+                    "condition": "{{eq \"1\" \"1\"}}",
+                    "message": {
+                        "status": "output_verifycode",
+                        "data": "{{.randcodeUrl}}",
+                        "need_param": "randcode"
+                    },
+                    "goto": "submit_randcode"
+                }
+            ]
+        },
+        {
+            "tag": "other_captcha",
+            "context_opers": [
+                "{{set \"file_suffix\" \"other_captcha\"}}",
+                "{{uploadVerifyCode .code | set \"randcodeUrl\"}}"
+            ],
+            "actions": [
+                {
+                    "condition": "{{eq \"1\" \"1\"}}",
+                    "message": {
+                        "status": "wrong_verifycode",
+                        "data": "{{.randcodeUrl}}",
+                        "need_param": "randcode"
+                    },
+                    "goto": "submit_randcode"
+                }
+            ]
+        },
+        {
+            "tag": "dama2",
+            "context_opers": [
+                "{{add \"dama_times\" 1}}"
+            ],
+            "captcha": {
+                "img_body": "{{base64Decode .code}}",
+                "img_format": "png",
+                "code_type": "54",
+                "context_key": "randcode"
+            },
+            "actions": [
+                {
+                    "condition": "{{or (empty \"randcode\") (contains \"ERROR\" .randcode)}}",
+                    "delete_context": ["randcode"],
+                    "opers": [
+                        "{{add \"dama_times\" 5}}"
+                    ],
+                    "goto": "first_captcha"
+                }
+            ]
+        },
+        {
+            "tag": "submit_randcode",
+            "need_param": "randcode",
+            "context_opers": [
+                "{{mapToString \"op\" \"code\" \"sid\" .sid \"checkcode\" .randcode | encryptString .JhjjPublicKey | set \"codeEns\"}}"
+            ],
+            "actions": [
+                {
+                    "condition": "{{empty \"randcode\"}}",
+                    "delete_context": ["randcode"],
+                    "goto": "submit_randcode"
+                },
+                {
+                    "condition": "{{eq \"1\" \"1\"}}",
+                    "goto": "submit"
+                }
+            ]
+        },
+        {
+            "tag": "sms",
+            "condition": "{{notEmpty \"submitPassword2\"}}",
+            "need_param": "password2",
+            "context_opers": [
+                "{{mapToString \"op\" \"code\" \"sid\" .sid \"checkcode\" .password2 | encryptString .JhjjPublicKey | set \"codeEns\"}}",
+                "{{set \"file_suffix\" \"sms\"}}"
+            ],
+            "actions": [
+                {
+                    "condition": "{{empty \"password2\"}}",
+                    "delete_context": ["password2"],
+                    "goto": "sms"
+                },
+                {
+                    "condition": "{{eq \"1\" \"1\"}}",
+                    "goto": "submit"
+                }
+            ]
+        },
+        {
+            "tag": "fresh_captcha",
+            "context_opers": [
+                "{{mapToString \"op\" \"code\" \"sid\" .sid | encryptString .JhjjPublicKey | set \"codeEns\"}}",
+                "{{set \"file_suffix\" \"fresh_captcha\"}}"
+            ],
+            "actions": [
+                {
+                    "condition": "{{eq \"1\" \"1\"}}",
+                    "goto": "submit"
+                }
+            ]
+        },
+        {
+            "tag": "get_result",
+            "condition": "{{notEmpty \"getResult\"}}",
+            "context_opers": [
+                "{{mapToString \"op\" \"get\" \"sid\" .sid \"username\" .username | encryptString .JhjjPublicKey | set \"codeEns\"}}",
+                "{{set \"file_suffix\" \"get_result\"}}"
+            ],
+            "login_success": true
+        },
+        {
+            "actions": [
+                {
+                    "condition": "{{eq 1 1}}",
+                    "goto": "submit"
+                }
+            ]
+        },
+        {
+            "tag": "smallsleep",
+            "sleep": 2
+        },
+        {
+            "tag": "submit",
+            "page": "{{joinString \"http://mtf.yirendai.com/api/service?queryterms=\" .codeEns \"&clientId=CE-BD-JHJJ\" | urlEncode}}",
+            "method": "GET",
+            "response_timeout": 300,
+            "context_opers": [
+                "{{extractJson \"error\" ._body | set \"errorCode\"}}",
+                "{{extractJson \"sid\" ._body | set \"sid2\"}}",
+                "{{extractJson \"type\" ._body | set \"type\"}}",
+                "{{extractJson \"code\" ._body | set \"code\"}}",
+                "{{extractJson \"msg\" ._body | set \"msg\"}}",
+                "{{empty \"sid\" | whichOne \"{{.sid2}}\" \"{{.sid}}\" | set \"sid\"}}"
+            ],
+            "actions": [
+                {
+                    "condition": "{{empty \"errorCode\"}}",
+                    "message":{
+                        "status": "fail",
+                        "data": "未知错误"
+                    }
+                },
+                {
+                    "condition": "{{and (eq .errorCode \"1002\") (contains \"请一分钟之后重新登陆\" .msg)}}",
+                    "message":{
+                        "status": "fail",
+                        "data": "短信验证码错误,请一分钟之后重新登陆"
+                    }
+                },
+                {
+                    "condition": "{{eq .errorCode \"1001\"}}",
+                    "delete_context": ["username", "password"],
+                    "message":{
+                        "status": "fail",
+                        "data": "用户名或密码错误"
+                    }
+                },
+                {
+                    "condition": "{{and (eq .errorCode \"1002\") (notEmpty \"submitRandcode\")}}",
+                    "delete_context": ["randcode", "submitPassword2"],
+                    "goto": "fresh_captcha"
+                },
+                {
+                    "condition": "{{and (eq .errorCode \"1002\") (notEmpty \"submitPassword2\")}}",
+                    "delete_context": ["password2", "submitRandcode"],
+                    "message":{
+                        "status": "wrong_second_password",
+                        "need_param": "password2",
+                        "data": "短信验证码错误"
+                    },
+                    "goto": "sms"
+                },
+                {
+                    "condition": "{{and (empty \"first_captcha\") (eq .errorCode \"0\") (eq .type \"0\") (notEmpty \"code\") (lt .dama_times 3)}}",
+                    "opers": [
+                        "{{set \"submitRandcode\" \"true\"}}"
+                    ],
+                    "delete_context": ["randcode", "password2", "submitPassword2"],
+                    "goto": "dama2"
+                },
+                {
+                    "condition": "{{and (empty \"first_captcha\") (eq .errorCode \"0\") (eq .type \"0\") (notEmpty \"code\")}}",
+                    "opers": [
+                        "{{set \"submitRandcode\" \"true\"}}"
+                    ],
+                    "delete_context": ["randcode", "password2", "submitPassword2"],
+                    "goto": "first_captcha"
+                },
+                {
+                    "condition": "{{and (notEmpty \"first_captcha\") (eq .errorCode \"0\") (eq .type \"0\") (notEmpty \"code\") (notEmpty \"password2\")}}",
+                    "opers": [
+                        "{{set \"submitRandcode\" \"true\"}}"
+                    ],
+                    "delete_context": ["randcode", "password2", "submitPassword2"],
+                    "goto": "first_captcha"
+                },
+                {
+                    "condition": "{{and (notEmpty \"first_captcha\") (eq .errorCode \"0\") (eq .type \"0\") (notEmpty \"code\")}}",
+                    "delete_context": ["randcode", "password2", "submitPassword2"],
+                    "opers": [
+                        "{{set \"submitRandcode\" \"true\"}}"
+                    ],
+                    "goto": "other_captcha"
+                },
+                {
+                    "condition": "{{and (eq .errorCode \"0\") (eq .type \"1\")}}",
+                    "delete_context": ["password2", "submitRandcode"],
+                    "opers": [
+                        "{{set \"submitPassword2\" \"true\"}}"
+                    ],
+                    "message":{
+                        "status": "need_param",
+                        "need_param": "password2",
+                        "data": "{{.username}}"
+                    },
+                    "goto": "sms"
+                },
+                {
+                    "condition": "{{and (eq .errorCode \"0\") (eq .file_suffix \"get_result\")}}",
+                    "opers": [
+                        "{{writeToParser \"hc_phone\" .username ._body}}"
+                    ]
+                },
+                {
+                    "condition": "{{and (eq .errorCode \"0\") (ne .type \"1\") (empty \"code\")}}",
+                    "delete_context": ["otherCaptcha", "submitPassword2", "submitRandcode", "getResult"],
+                    "opers": [
+                        "{{set \"getResult\" \"true\"}}"
+                    ],
+                    "goto": "get_result"
+                },
+                {
+                    "condition": "{{eq .errorCode \"4003\"}}",
+                    "goto": "smallsleep"
+                },
+                {
+                    "condition": "{{and (eq .errorCode \"4000\") (notEmpty \"msg\")}}",
+                    "message":{
+                        "status": "fail",
+                        "data": "{{.msg}}"
+                    }
+                },
+                {
+                    "condition": "{{ne .errorCode \"0\"}}",
+                    "opers": [
+                        "{{joinString \"hc_phone_\" .errorCode | get | set \"failMsg\"}}",
+                        "{{empty \"failMsg\" | whichOne \"{{.msg}}\" \"{{.failMsg}}\" | set \"failMsg\"}}",
+                        "{{empty \"failMsg\" | whichOne \"未知错误\" \"{{.failMsg}}\" | set \"failMsg\"}}"
+                    ],
+                    "message":{
+                        "status": "fail",
+                        "data": "{{.failMsg}}"
+                    }
+                }
+            ]
+        }
+    ]
+}

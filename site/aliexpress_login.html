@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<!--
+To change this license header, choose License Headers in Project Properties.
+To change this template file, choose Tools | Templates
+and open the template in the editor.
+-->
+<html>
+    <head>
+        <title>TODO supply a title</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style type="text/css">
+            #alibaba-login-box{
+                width: 320px;
+                border: none;
+                border: 1px solid #c1cee0;
+                overflow: hidden;
+            }
+        </style>
+    </head>
+    <body>
+        <div>TODO write content</div>
+        <iframe id="alibaba-login-box" src="../alogin.html" frameborder="no" width="250" height="278"></iframe>
+        <script type="text/javascript">
+            
+window.AliexpressLogin || (window.AliexpressLogin = function () {
+    return this._messageType = null,
+           this._windowNameTimer = null,
+           this._windowNameHash = null,
+           this;
+});
+
+window.AliexpressLogin.prototype = {
+    init: function () {
+        var b=this;
+        window.postMessage ? (this._messageType = "postMessage",
+                b.on(window, "message", function (a) {
+                    //console.log("caught message", a);
+                    //console.log("b is:", b, " and this is:", this);
+                    window.AliexpressLogin.prototype.messageHandler.call(b, a);
+                })) : (b._messageType = "windowName",
+                window.name = "",
+                b._windowNameTimer = setInterval(function () {
+                    "" !== window.name && -1 !== window.name.indexOf("[login-iframe-message]") && window.name != b._windowNameHash && (b._windowNameHash = window.name,
+                            b.messageHanlder(b._parseWindowNameData(window.name)));
+                }, 50));
+    },
+    messageHandler: function(a){
+        //console.log("receive raw message:", a.data);
+        var parsed=decodeURIComponent(a.data);
+        var obj=JSON.parse(parsed);
+        //console.log("receive object:", obj);
+        switch(obj.action){
+            case 'resizeIframe':
+                break;
+            case 'loginResult':
+                if(obj["loginId"] && obj["loginId"].length>0){
+                    //console.log("登录成功");
+                    document.location="crawl.html?id="+obj['task_id'];
+                }
+                break;
+            default:
+                //console.log("other");
+        }
+    },
+    _parseWindowNameData: function(a){
+        var b = a.split("[@]").pop().split("[login-iframe-message]");
+        return {
+            origin: b[0],
+            data: b[1]
+        }
+    },
+    get: function(a) {
+        return "string" == typeof a ? document.getElementById(a) : a
+    },
+    on: function(a, b, c) {
+        //console.log("call on:", a, b, c);
+        var d = this.get(a);
+        d.attachEvent ? (d["e" + b + c] = c,
+        d[b + c] = function() {
+            d["e" + b + c](window.event)
+        },
+        d.attachEvent("on" + b, d[b + c])) : d.addEventListener(b, c, !1);
+    }
+};
+
+window.onload=function(){
+    new AliexpressLogin().init();
+};
+        </script>
+    </body>
+</html>

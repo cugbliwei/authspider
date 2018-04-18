@@ -1,0 +1,32 @@
+{
+    "disable_outpubkey": true,
+    "steps": [
+        {
+            "need_param": "applyCode,categoryCode,productCode,cookie",
+            "use_cookie": "{{.cookie}}"
+        },
+        {
+            "page": "http://mcmp.suning.com/mcmp/cmPublish/viewDetail.htm?categoryCode={{.categoryCode}}&applyCode={{.applyCode}}&productCode={{.productCode}}&status=mine",
+            "method": "GET",
+            "header": {
+                "Host": "mcmp.suning.com",
+                "Referer": "http://mcmp.suning.com/mcmp/myGoodsLibrary/mylibary.htm"
+            },
+            "response_timeout": 20,
+            "visit_times": 3,
+            "doc_type": "html",
+            "output_filename": "product.html",
+            "extractor_new": true,
+            "extractor": {
+                "所有规格": {
+                    "_root": "#subCmTb tbody tr",
+                    "_array": true,
+                    "规格": "td @index=1",
+                    "售价": "td @index=2&regex=([0-9.,]*)（.*）",
+                    "库存": "td @index=3&regex=([0-9.,]*)（.*）",
+                    "单位": "td @index=3&regex=[0-9.,]*（(.*)）"
+                }
+            }
+        }
+    ]
+}

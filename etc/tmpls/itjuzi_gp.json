@@ -1,0 +1,100 @@
+{
+    "disable_outpubkey": true,
+    "steps": [
+        {
+            "need_param": "link",
+            "context_opers": [
+                "{{randIntn 15 | set \"rand_index\"}}"
+            ]
+        },
+        {
+            "get_from_redis": "itjuzi_account_{{.rand_index}}",
+            "use_cookie": "{{._body}}"
+        },
+        {
+            "page": "{{.link}}",
+            "method": "GET",
+            "response_timeout": 10,
+            "visit_times": 3,
+            "output_filename": "gp.html",
+            "doc_type": "html",
+            "context_opers": [
+                "{{extractHtml \".infohead-fund h1\" ._body | set \"company_name\"}}"
+            ],
+            "extractor": {
+                "机构名称": ".infohead-fund h1",
+                "机构链接": "c:{{.link}}",
+                "基本信息": {
+                    "_root": ".fund-info .new-table-box .base-info",
+                    "机构类型": "td:contains('机构类型')&regex=机构类型：(.*)",
+                    "机构性质": "td:contains('机构性质')&regex=机构性质：(.*)",
+                    "成立时间": "td:contains('成立时间')&regex=成立时间：(.*)",
+                    "员工人数": "td:contains('员工人数')&regex=员工人数：(.*)",
+                    "注册资本": "td:contains('注册资本')&regex=注册资本：(.*)",
+                    "实缴资本": "td:contains('实缴资本')&regex=实缴资本：(.*)",
+                    "机构网址": "td:contains('机构网址')&regex=机构网址：(.*)",
+                    "注册地址": "td:contains('注册地址')&regex=注册地址：(.*)",
+                    "办公地址": "td:contains('办公地址')&regex=办公地址：(.*)"
+                },
+                "高管介绍": {
+                    "_root": ".fund-info .new-table-box .senior-mgr-info",
+                    "法定代表": "td:contains('法定代表') ~ td @index=0",
+                    "工作履历": {
+                        "_root": "tr:contains('工作履历') ~ tr",
+                        "公司": "td @index=1",
+                        "角色": "td @index=2",
+                        "时间": "td @index=3"
+                    },
+                    "其他高管": {
+                        "_root": "tr:contains('其他高管') ~ tr",
+                        "姓名": "td @index=1",
+                        "角色": "td @index=2"
+                    }
+                },
+                "所属机构": {
+                    "_root": ".fund-info .new-table-box .institution-info",
+                    "名称": "td:contains('名称') a",
+                    "名称链接": "td:contains('名称') a&attr=href",
+                    "机构性质": "td:contains('机构性质')&regex=机构性质：(.*)",
+                    "资本规模-主体": "td:contains('资本规模') span @index=1",
+                    "资本规模-包含": "td:contains('资本规模') span @index=2",
+                    "投资领域": {
+                        "_root": "tr:contains('投资领域') a",
+                        "领域": ":this&attr=text"
+                    },
+                    "投资轮次": {
+                        "_root": "tr:contains('投资轮次') a",
+                        "轮次": ":this&attr=text"
+                    },
+                    "详细介绍": "td:contains('详细介绍') .detail-msg"
+                },
+                "募资动态": {
+                    "_root": ".fund-info .new-table-box .bussiness_main .custom-table tbody tr",
+                    "名称": "td @index=0",
+                    "名称链接": "td @index=0 a&attr=href",
+                    "类型": "td @index=1",
+                    "币种": "td @index=2",
+                    "募集时间": "td @index=3"
+                },
+                "所投项目": {
+                    "_root": ".fund-info .list-invecase tbody tr",
+                    "项目图片": "td @index=0 img&attr=src",
+                    "项目名称": "td @index=1 b",
+                    "项目简介": "td @index=1 p",
+                    "所属行业": "td @index=2",
+                    "轮次": "td @index=3",
+                    "资金": "td @index=4"
+                }
+            },
+            "actions": [
+                {
+                    "condition": "{{empty \"company_name\"}}",
+                    "message": {
+                        "status": "fail",
+                        "data": "抓取失败"
+                    }
+                }
+            ]
+        }
+    ]
+}

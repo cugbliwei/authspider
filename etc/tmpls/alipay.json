@@ -1,0 +1,48 @@
+{
+    "disable_outpubkey": true,
+    "steps": [
+        {
+            "need_param": "cookie",
+            "use_cookie": "{{.cookie}}"
+        },
+        {
+            "page":"https://my.alipay.com/portal/i.htm",
+            "method":"GET",
+            "response_timeout": 10,
+            "visit_times": 3,
+			"doc_type": "html",
+			"output_filename": "my_alipay.html",
+            "context_opers": [
+                "{{extractRegex \"userName:\\\"([\u4E00-\u9FFF]+)\\\"\" ._body | set \"name\"}}",
+                "{{extractRegex \"mobile:\\\"([0-9*]+)\\\"\" ._body | set \"mobile\"}}",
+                "{{nowMillTimestamp | set \"username\"}}"
+            ],
+            "extractor": {
+                "username": "c:{{.username}}",
+            	"姓名": "c:{{.name}}",
+            	"手机号": "c:{{.mobile}}",
+				"账户余额": ".i-assets-balance-amount .amount",
+				"余额宝": "#J-assets-mfund-amount .amount"
+			}
+        },
+		{
+            "condition": "{{notEmpty \"name\"}}",
+			"page": "https://f.alipay.com/moonlight/index.htm",
+			"method":"GET",
+            "response_timeout": 10,
+            "visit_times": 3,
+            "context_opers": [
+                "{{extractRegex \"总额度:(.*)元\" ._body | set \"total_balance\"}}",
+                "{{extractRegex \"还款日：每月([0-9]+)日\" | set \"repay_time\"}}",
+                "{{extractHtml \".tocal-amount\" ._body | set \"tocal_amount\"}}"
+            ],
+			"output_filename":"index.html",
+            "extractor": {
+				"蚂蚁花呗-总额度": ".inner .highlight",
+				"蚂蚁花呗-可用额度": "c:{{.total_balance}}",
+				"蚂蚁花呗-下期需还款": "c:{{.tocal_amount}}",
+                "蚂蚁花呗-还款日": "c:{{.repay_time}}"
+			}
+		}
+    ]
+}

@@ -1,0 +1,106 @@
+{
+    "disable_output_folder": true,
+    "disable_outpubkey": true,
+    "steps": [
+        {
+            "need_param": "username,password,index",
+            "page": "https://www.tianyancha.com/",
+            "method": "GET",
+            "response_timeout": 7,
+            "visit_times": 3
+        },
+        {
+            "page": "https://www.tianyancha.com/login",
+            "method": "GET",
+            "response_timeout": 7,
+            "visit_times": 3
+        },
+        {
+            "page": "https://www.tianyancha.com/cd/login.json",
+            "method": "POSTJSON",
+            "json_post_body": {
+                "mobile": "{{.username}}",
+                "cdpassword": "{{md5 .password}}",
+                "loginway": "PL",
+                "autoLogin": true
+            },
+            "header": {
+                "Content-Type": "application/json; charset=utf-8",
+                "Referer": "https://www.tianyancha.com/login"
+            },
+            "response_timeout": 10,
+            "visit_times": 3,
+            "doc_type": "json",
+            "context_opers": [
+                "{{extractJson \"data\" ._body | marshalInterface | set \"rtoken\"}}",
+                "{{extractJson \"data.token\" ._body | marshalInterface | set \"auth_token\"}}",
+                "{{len .auth_token | set \"len_auth_token\"}}",
+                "{{add \"len_auth_token\" -1}}",
+                "{{cutString 1 .len_auth_token .auth_token | set \"auth_token\"}}"
+            ],
+            "actions": [
+                {
+                    "condition": "{{or (empty \"rtoken\") (empty \"auth_token\")}}",
+                    "message": {
+                        "status": "fail",
+                        "data": "获取rtoken失败"
+                    }
+                }
+            ]
+        },
+        {
+            "page": "http://tool.chinaz.com/tools/urlencode.aspx",
+            "method": "POST",
+            "params": {
+                "charsetSelect": "utf-8",
+                "content": "{{.rtoken}}",
+                "en": "UrlEncode编码"
+            },
+            "response_timeout": 30,
+            "visit_times": 3,
+            "doc_type": "html",
+            "context_opers": [
+                "{{extractHtml \"#content\" ._body | set \"rrtoken\"}}"
+            ],
+            "actions": [
+                {
+                    "condition": "{{empty \"rrtoken\"}}",
+                    "message": {
+                        "status": "fail",
+                        "data": "获取rrtoken失败"
+                    }
+                }
+            ]
+        },
+        {
+            "page": "http://tool.chinaz.com/tools/urlencode.aspx",
+            "method": "POST",
+            "params": {
+                "charsetSelect": "utf-8",
+                "content": "{{.rrtoken}}",
+                "en": "UrlEncode编码"
+            },
+            "response_timeout": 30,
+            "visit_times": 3,
+            "doc_type": "html",
+            "context_opers": [
+                "{{extractHtml \"#content\" ._body | set \"token\"}}"
+            ],
+            "actions": [
+                {
+                    "condition": "{{empty \"token\"}}",
+                    "message": {
+                        "status": "fail",
+                        "data": "获取token失败"
+                    }
+                }
+            ]
+        },
+        {
+            "context_opers": [
+                "{{joinString \"{\\\"tianyancha.com\\\": {\\\"tianyancha.com;/;tyc-user-info\\\": {\\\"Domain\\\":\\\"tianyancha.com\\\",\\\"HttpOnly\\\":true,\\\"Name\\\":\\\"tyc-user-info\\\",\\\"Path\\\":\\\"/\\\",\\\"Secure\\\":false,\\\"Value\\\":\\\"\" .token \"\\\"},\\\"tianyancha.com;/;auth_token\\\": {\\\"Domain\\\":\\\"tianyancha.com\\\",\\\"HttpOnly\\\":true,\\\"Name\\\":\\\"auth_token\\\",\\\"Path\\\":\\\"/\\\",\\\"Secure\\\":false,\\\"Value\\\":\\\"\" .auth_token \"\\\"}\" \"}\" \"}\" | base64Encode | set \"new_cookie\"}}"
+            ],
+            "push_to_redis": "tianyancha_account_{{.index}},{{.new_cookie}},3000"
+        }
+    ]
+}

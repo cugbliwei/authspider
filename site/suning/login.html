@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta name="keywords" content=""/>
+    <meta name="description" content=""/>
+    <meta name="viewport" content="initial-scale=1.0, user-scalable=no" />
+    <title>登录</title>
+    <link rel="shortcut icon" href="https://www.suning.com/favicon.ico" type="image/x-icon">
+    <link rel="stylesheet" type="text/css" href="https://static.suning.cn/osr/resource/sel/login/css/common.css">
+    <link rel="stylesheet" type="text/css" href="../site/suning/login.css">
+    <!--
+    <link rel="stylesheet" type="text/css" href="https://static.suning.cn/osr/resource/sel/login/css/siller.css">
+    -->
+</head>
+<body>
+<div class="head">
+    <div class="head-top clearfix">
+        <a href="http://sop.suning.com/" target="_blank" class="logo"><img src="https://static.suning.cn/osr/resource/sel/login/images/logo.png"></a>
+    </div>
+</div>
+<div class="head-mid" style="background: #fffff0;">
+    <div id="pageImg" class="clearfix" style="background-repeat: repeat-x;background-position: center center;min-width: 1190px">
+        <a id="pagelink" href="#" class="login-pic" style="margin-top: 50px;float: left;width: 50%;height: 450px;">
+           
+        </a>
+        <div class="form" style="float: left;margin-left: 15%;">
+            <div class="form-cont">
+                <p class="form-title">账号登录</p>
+                <div id="errMsgBox" class="err-msg" style="display: none;">
+                    <p><i class="tip-error"></i><span id="errMsg"></span></p>
+                </div>
+				<form action="login" name="loginForm" id="loginForm" method="post" style="margin-top: 20px">
+                <!-- 用户名 -->
+                <div class="login-txtbox mb18">
+                    <!-- <label class="input-label">请输入邮箱账号名</label> -->
+                    <i class="ico"></i>
+                    <input class="txt-input text-email" placeholder="请输入邮箱账号名" id="userName" name="username" type="text" maxlength="50" tabindex="1" autocomplete="off" value=""/>
+                </div>
+                <!-- 密码 -->
+                <div class="login-txtbox mb18">
+                    <!-- <label class="input-label">密码</label> -->
+                    <i class="ico ico-psw"></i>
+                    <input class="txt-input" placeholder="密码" autocomplete="off" id="password" name="password" type="password" maxlength="20" autocomplete="off"/>
+                    <div id="caseTips" class="case_tips" style="display:none">大写锁定已打开</div>
+                </div>
+				<input type="hidden" name="service" value="" /> 
+				<input type="hidden" name="uuid" id="uuid" value="{{uuid_placeholder}}" />
+				<input type="hidden" name="cefrom" value="{{from_placeholder}}"/>
+				<input type="hidden" name="loginTheme" value="defaultTheme" /> 
+				<input type="hidden" id="pwd2" name="password2" />
+				<input type="hidden" id="slideToken" name="verifyCode" />
+				<input type="hidden" id="cpuId" name="cpuId"/>
+				</form>
+                <!-- 滑块 验证-->
+                <div class="mb30">
+                    <div id="siller" class="mb18 dt_parent"></div>
+                </div>
+		<!-- 图片 验证-->
+		<div id="imgValidateBlock" style="height: 50px;display:none">
+                    <span style="float: left;"><input id="validImg" name="verifyCode" style="border: 1px solid #ddd;height: 40px;width: 114px;padding-left: 10px;" type="text" maxlength="4" placeholder="输入验证码"/></span>
+                    <a class="code-img" href="#" onclick="fun_getVcode()" title="换一张"><img width="70" height="40" id="codeImg" src="https://vcs.suning.com/vcs/imageCode.htm?uuid={{uuid_placeholder}}" onclick="fun_getVcode() alt=""/></a>
+                    <p style="line-height: 40px; display: none;"><a id="changeCodeImg" href="javascript:void(0);" onclick="fun_getVcode()" style="margin-left: 20px;">换一张</a></p>
+                </div>
+                <!-- 登录按钮 -->
+                <div class="links-text mb10 clearfix" style="display: none;">
+                    <a href="http://sop.suning.com/sel/member/toForward.htm" class="link-left">忘记密码?</a>
+                    <a href="https://sop.suning.com/sel/member/toRegister.htm" class="link-right">免费注册&gt;</a>
+                </div>
+                <p>
+                    <a id="loginButton" href="javascript:;" class="login-submit">登　录</a>
+                </p>
+                <div class="email-list hide" style="width:300px"></div>
+            </div>
+            <div class="form-code">
+                <p class="form-title mt20">手机扫码，安全登录</p>
+
+                <div class="qrcode-area">
+                    <img class="qrcode"
+                         lg-src="https://mpassport.suning.com/ids/qrLoginUuidGenerate.htm?image=true"
+                         alt=""/>
+                    <div class="qrcode-way hide">
+                        <b>二维码已失效</b>
+                        <a href="javascript:setLogonStylebyImage();">请点击刷新</a>
+                    </div>
+                    <div class="qrcode-success">
+                        <img src="https://static.suning.cn/osr/resource/sel/login/images/qrcode-sucess.png"/>
+
+                        <p id="scanTip" class="mt10">扫码成功！</p>
+                        <b>请在手机上确认登录</b>
+                    </div>
+                </div>
+                <p class="mb10 mt20 fs14">打开云台移动版，扫一扫登录</p>
+                <a href="http://msop.suning.com/" target="_blank">下载云台移动版</a>
+            </div>
+            <span class="check-arrow-bad"></span>
+            <span class="check-pc"></span>
+            <!--
+            <div class="newNotice noticeType03">
+                <div class="posNotice arr-r-r-u">
+                    <em class="arrNotice1"></em>
+                    <em class="arrNotice2"></em>
+                    <span>可以扫码登录了哦</span>
+                </div>
+            </div> -->
+        </div>
+    </div>
+</div>
+<script type="text/javascript" src="https://static.suning.cn/osr/meas/error.js"></script>
+<script type="text/javascript" src="https://static.suning.cn/osr/resource/sel/js/jquery-1.8.3.js"></script>
+<script type="text/javascript" src="https://static.suning.cn/osr/resource/sel/login/js/login.js"></script>
+<!-- <script type="text/javascript" src="https://dt.suning.com/detect/dt/siller.js"></script> -->
+<script type="text/javascript" src="https://mpassport.suning.com/ids/js/security.js"></script>
+<!-- <script type="text/javascript" src="https://fp.suning.com/bennu-collector/fp/porto.js"></script> -->
+<script type="text/javascript" src="https://mpassport.suning.com/ids/login/loginPage.js"></script>
+<script type="text/javascript">
+	function setLogonStylebyImage(){
+		
+	}
+	/*$.ajax({
+            url: "https://sop.suning.com/sel/portalpic/getHomeImgInfoWithConditionAjax.htm",
+            dataType: "jsonp",
+            jsonp: "jsonpcallback",
+            data: {moduleBelongs: "0", position: "4"},
+            success: function (list) {
+                if (list.length == 1 && list[0].picsrc != "") {
+                    var imgSrc = list[0].picsrc;
+                    var imghref = list[0].hyperLinks;
+		    $("#pageImg").css("backgroundImage","url("+imgSrc.replace('http', 'https')+")");
+		    $("#pagelink").attr("href",imghref);
+                } 
+            }
+        });*/
+
+	$.fn.initLogin({
+	    imgValidate:true,
+	    qrLogin:false,
+	    remainTimes:-1,
+	    needVerify:true,
+	    snMemberErrorCode:'',
+	    errorCode:'',
+	    snapshotId:'',
+	    uuid:'{{uuid_placeholder}}',
+	    city:'',
+		mascDomain:'masc.suning.com',
+		sliderDomain:'dt.suning.com',
+		vcsDomain:'vcs.suning.com',
+	    serviceStr:decodeURIComponent("")
+	});
+
+	/*porto.init({ 
+		partnerCode:'none', 
+		appName:'passport', 
+		referenceId:'123', 
+		sessionId:'123',
+		serviceUrl:"https://fp.suning.com/bennu-collector/fp/porto.json" 
+	});*/
+</script>
+<!--
+<script type="text/javascript" src="https://static.suning.cn/osr/meas/time.js"></script>
+-->
+</body>
+</html>

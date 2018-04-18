@@ -1,0 +1,60 @@
+{
+    "disable_output_folder": true,
+    "disable_outpubkey": true,
+    "steps": [
+        {
+            "need_param": "username,password,index"
+        },
+        {
+            "get_from_redis": "itjuzi_account_{{.index}}",
+            "use_cookie": "{{._body}}"
+        },
+        {
+            "page": "https://www.itjuzi.com/user/logout",
+            "method": "GET",
+            "response_timeout": 10,
+            "visit_times": 3
+        },
+        {
+            "page": "https://www.itjuzi.com",
+            "method": "GET",
+            "response_timeout": 10,
+            "visit_times": 3
+        },
+        {
+            "page": "https://www.itjuzi.com/user/login",
+            "method": "GET",
+            "response_timeout": 10,
+            "visit_times": 3
+        },
+        {
+            "page": "https://www.itjuzi.com/user/login",
+            "method": "POST",
+            "params": {
+                "identity": "{{.username}}",
+                "page": "",
+                "password": "{{.password}}",
+                "remember": "1",
+                "submit": "",
+                "url": ""
+            },
+            "response_timeout": 20,
+            "visit_times": 3
+        },
+        {
+            "page": "https://www.itjuzi.com",
+            "method": "GET",
+            "response_timeout": 10,
+            "visit_times": 3
+        },
+        {
+            "page": "https://www.itjuzi.com/user/edit",
+            "method": "GET",
+            "response_timeout": 10,
+            "visit_times": 3
+        },
+        {
+            "push_to_redis": "itjuzi_account_{{.index}},{{base64Encode .all_cookies}},3000"
+        }
+    ]
+}

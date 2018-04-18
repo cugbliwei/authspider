@@ -1,0 +1,64 @@
+{
+    "disable_outpubkey": true,
+    "steps": [
+        {
+            "need_param": "url,query"
+        },
+        {
+            "page": "{{.url}}",
+            "header": {
+                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.113 Safari/537.36"
+            },
+            "method": "GET",
+            "response_timeout": 30,
+            "visit_times": 3,
+            "doc_type": "html",
+            "output_filename": "{{.query}}.html",
+            "context_opers": [
+                "{{getNewsContent ._body | set \"content\"}}",
+                "{{trimContent \"^原创,^20[0-9]{2}-[0-1][1-9]-[0-3][0-9];官方号,^[ ]*大家好\" .content | set \"digest\"}}",
+                "{{extractRegex \"var biz = .*\\\"(.*)\\\";\" ._body | set \"biz\"}}",
+                "{{if empty \"biz\"}}{{extractRegex \"var biz = \\\"(.*?)\\\"\" ._body | set \"biz\"}}{{end}}",
+                "{{extractRegex \"var ct = .*?(\\\\d+)\" ._body | set \"pub_time\"}}",
+                "{{extractRegex \"var mid = .*?(\\\\d+)\" ._body | set \"mid\"}}",
+                "{{extractRegex \"var idx = .*?(\\\\d+)\" ._body | set \"idx\"}}",
+                "{{joinString .biz \"-\" .mid \"-\" .idx | set \"rowkey\"}}",
+                "{{joinString \"http://authcrawler.yixin.com/hbase/get?rowkey=\" .rowkey | urlEncode | set \"cache_link\"}}",
+                "{{removeTag \"script\" ._body | set \"html\"}}"
+            ],
+            "extractor": {
+                "is_original": "#copyright_logo",
+                "cache_link": "c:{{.cache_link}}",
+                "pub_time": "c:{{timestampToString \"2006-01-02 15:04:05\" .pub_time}}",
+                "pub_date": "#post-date",
+                "digest": "c:{{.digest}}"
+            },
+            "actions": [
+                {
+                    "condition": "{{contains \"链接已过期\" ._body}}",
+                    "message": {
+                        "status": "fail",
+                        "data": "链接已过期"
+                    }
+                }
+            ]
+        },
+        {
+            "condition": "{{eq 1 1}}",
+            "context_opers": [
+                "{{addTag \"head\" \"<meta content=\\\"no-referrer\\\" name=\\\"referrer\\\">\" .html | set \"html\"}}",
+                "{{editTag \"img\" \"src\" \"@data-src\" .html | set \"html\"}}",
+                "{{readFromFile \"./etc/js/weixin.js\" | set \"js\"}}",
+                "{{addTag \"body\" .js .html | set \"html\"}}",
+                "{{syncSendToHbase \"cache\" .rowkey .html | set \"is_stored\"}}"
+            ]
+        },
+        {
+            "condition": "{{and (notEmpty .is_stored) (eq .is_stored \"false\")}}",
+            "message": {
+                "status": "fail",
+                "data": "hbase存储失败"
+            }
+        }
+    ]
+}

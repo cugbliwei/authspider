@@ -1,0 +1,58 @@
+{
+    "disable_outpubkey": true,
+    "steps": [
+        {   "need_param": "no",
+            "actions": [
+                {
+                    "condition": "{{eq \"no_exist\" .no}}",
+                    "message":{
+                        "status": "fail",
+                        "data": "id为空"
+                    }
+                }
+            ],
+            "context_opers": [
+                "{{stringToInt .no | set \"companyId\"}}",
+                "{{nowTime \"2006-01-02\" | set \"nowDate\"}}",
+                "{{randIntn 4 | set \"idx\"}}"
+            ]
+        },
+        {
+            "get_from_redis": "xiniudata_cookie_{{.idx}}",
+            "use_cookie": "{{._body}}"
+        },
+        {
+            "tag": "query_page",
+            "page": "http://www.xiniudata.com/api2/service/x_service/system_company_track/list_company_message_by_publish_time_range",
+            "header": {
+                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.113 Safari/537.36",
+                "Referer": "http://www.xiniudata.com/",
+                "Content-Type": "application/json"
+            },
+            "method": "POSTJSON",
+            "json_post_body": "{\"payload\": {\"companyId\": {{.companyId}},\"endTime\": \"2020-02-06\",\"limit\": 1000,\"start\": 0,\"startTime\": \"{{.nowDate}}\",\"type\": 0}}",
+            "response_timeout": 30,
+            "visit_times": 1,
+            "sleep": 1,
+            "doc_type": "json",
+            "output_filename": "xiniudata_{{.no}}.json",
+            "extractor": {
+                "detail": {
+                    "_root": "system_PortfolioTrackVO.portfolioInfoVOList",
+                    "_array": true,
+                    "displayType": "displayType",
+                    "name": "relateCompany.name",
+                    "code": "relateCompany.code",
+                    "investment": "fundingVO.funding.investment",
+                    "currency": "fundingVO.funding.currency",
+                    "round": "fundingVO.funding.round",
+                    "investorsRaw": "fundingVO.funding.investorsRaw",
+                    "fundingDate": "fundingVO.funding.fundingDate",
+                    "newsId": "fundingVO.funding.newsId",
+                    "investorsId": "fundingVO.investors.id",
+                    "investorsName": "fundingVO.investors.name"
+                }
+            }
+        }
+    ]
+}

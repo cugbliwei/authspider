@@ -1,0 +1,65 @@
+{
+    "disable_outpubkey": true,
+    "steps": [
+        {
+            "need_param": "client_id,username,password",
+            "page": "https://merchant.wish.com/oauth/authorize?client_id={{.client_id}}",
+            "method": "GET",
+            "response_timeout": 10,
+            "visit_times": 3,
+            "output_filename": "index.html"
+        },
+        {
+            "page": "https://merchant.wish.com/api/login",
+            "method": "POST",
+            "params": {
+                "username": "{{.username}}",
+                "password": "{{.password}}",
+                "remember_me": "true"
+            },
+            "header": {
+                "Referer": "https://merchant.wish.com/login?next=%2Foauth%2Fauthorize%3Fclient_id%3D{{.client_id}}"
+            },
+            "response_timeout": 10,
+            "visit_times": 3,
+            "doc_type": "json",
+            "output_filename": "login.json",
+            "context_opers": [
+                "{{extractJson \"code\" ._body | set \"loginCode\"}}",
+                "{{extractJson \"data.user_id\" ._body | set \"user_id\"}}"
+            ],
+            "actions": [
+                {
+                    "condition": "{{eq .loginCode \"10\"}}",
+                    "message":{
+                        "status": "fail",
+                        "data": "用户名/邮箱或密码不匹配"
+                    }
+                }
+            ],
+            "login_success": true
+        },
+        {
+            "page": "https://merchant.wish.com/api/oauth/grant",
+            "method": "POST",
+            "params": {
+                "client_id": "{{.client_id}}",
+                "user": "{{.user_id}}"
+            },
+            "header": {
+                "Referer": "https://merchant.wish.com/oauth/authorize?client_id={{.client_id}}"
+            },
+            "response_timeout": 10,
+            "visit_times": 3,
+            "doc_type": "json",
+            "output_filename": "getCode.json",
+            "extractor": {
+                "code": "data.code"
+            },
+            "message": {
+                "status": "finish_fetch_data",
+                "data": "{{._extractor}}"
+            }
+        }
+    ]
+}

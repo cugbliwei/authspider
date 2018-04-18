@@ -1,0 +1,46 @@
+{
+    "disable_outpubkey": true,
+    "steps": [
+        {
+            "need_param": "cookie,tmpl",
+            "use_cookie": "{{.cookie}}"
+        },
+        {
+            "context_opers": [
+                "{{or (eq .tmpl \"sdk_taobao_shop\") (eq .tmpl \"cookie_taobao_shop\") | whichOne \"tbloan\" \"tmloan\" | set \"which_loan\"}}",
+                "{{or (eq .tmpl \"sdk_taobao_shop\") (eq .tmpl \"cookie_taobao_shop\") | whichOne \"taobao\" \"tmall\" | set \"shop_type\"}}"
+            ]
+        },
+        {
+            "page": "https://i.taobao.com/my_taobao.htm",
+            "method": "GET",
+            "response_timeout": 10,
+            "visit_times": 3,
+            "doc_type": "html",
+            "output_filename": "my_taobao.htm",
+            "context_opers": [
+                "{{extractHtml \"#mtb-userid&attr=value\" ._body | set \"username\"}}",
+                "{{extractHtml \"#mtb-nickname&attr=value\" ._body | set \"origin_wangwang\"}}"
+            ],
+            "actions": [
+                {
+                    "condition": "{{empty \"username\"}}",
+                    "message":{
+                        "status": "fail",
+                        "data": "网络错误"
+                    },
+                    "info":"网络错误"
+                }
+            ],
+            "extractor": {
+                "username": "c:{{.username}}"
+            }
+        },
+        {
+            "require": {
+                "file": "ali2.json",
+                "from": "https://myseller.taobao.com/ajax/widget.do?t={{nowMillTimestamp}}&name=seller_info"
+            }
+        }
+    ]
+}

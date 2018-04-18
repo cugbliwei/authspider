@@ -1,0 +1,19 @@
+{
+    "disable_output_folder": true,
+    "disable_outpubkey": true,
+    "steps": [
+        {
+            "need_param": "url,headers,params",
+            "page": "{{.url}}",
+            "method": "POST",
+            "params_unknown": "{{.params}}",
+            "header_unknown": "{{.headers}}",
+            "response_timeout": 10,
+            "visit_times": 4,
+            "doc_type": "json",
+            "extractor": {
+                "result":"*"
+            }
+        }
+    ]
+}

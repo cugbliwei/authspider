@@ -1,0 +1,262 @@
+{
+    "disable_output_folder": true,
+    "steps": [
+        {
+            "need_param": "username,password"
+        },
+        {
+            "tag": "begin_login",
+            "need_param": "username,password",
+            "context_opers": [
+                "{{set \"file_suffix\" \"login\"}}",
+                "{{hexEncodeToString .username | set \"userCode\"}}",
+                "{{joinString .username \"|\" .password \"|\" \"6\" \"|\" \"stdWeb\" \"|\" .userCode | encryptString .StdPublicKey | set \"codeEns\"}}"
+            ]
+        },
+        {
+            "tag": "submit",
+            "page": "{{joinString \"http://mfa.yirendai.com/api/doFetch?clientId=CE-BD-STD&args=\" .codeEns | urlEncode}}",
+            "method": "GET",
+            "response_timeout": 300,
+            "context_opers": [
+                "{{extractJson \"appemailkey\" ._body | set \"appemailkey\"}}",
+                "{{extractJson \"code\" ._body | set \"errorCode\"}}",
+                "{{extractJson \"msg\" ._body | set \"message\"}}"
+            ],
+            "actions": [
+                {
+                    "condition": "{{ne .errorCode \"0\"}}",
+                    "opers": [
+                        "{{joinString \"hc_mail_\" .errorCode | get | set \"failMsg\"}}",
+                        "{{empty \"failMsg\" | whichOne \"{{.message}}\" \"{{.failMsg}}\" | set \"failMsg\"}}"
+                    ],
+                    "message":{
+                        "status": "fail",
+                        "data": "{{.failMsg}}"
+                    }
+                }
+            ]
+        },
+        {
+            "tag": "check_status",
+            "sleep": 2,
+            "page": "{{joinString \"http://mfa.yirendai.com/api/getFetchStatus?appemailkey=\" .appemailkey | urlEncode}}",
+            "method": "GET",
+            "response_timeout": 300,
+            "context_opers": [
+                "{{extractJson \"messageType\" ._body | set \"messageType\"}}",
+                "{{extractJson \"message\" ._body | set \"message\"}}",
+                "{{extractJson \"data\" ._body | set \"verifyCode\"}}"
+            ],
+            "actions": [
+                {
+                    "condition": "{{or (eq .messageType \"1\") (eq .messageType \"300\") (eq .messageType \"301\")}}",
+                    "goto": "check_status"
+                },
+                {
+                    "condition": "{{eq .messageType \"2\"}}",
+                    "message":{
+                        "status": "login_success",
+                        "data": "登录成功"
+                    },
+                    "goto": "check_status"
+                },
+                {
+                    "condition": "{{eq .messageType \"1000\"}}",
+                    "goto": "get_result"
+                },
+                {
+                    "condition": "{{eq .messageType \"3\"}}",
+                    "message": {
+                        "status": "fail",
+                        "data": "密码错误"
+                    },
+                    "goto": "begin_login"
+                },
+                {
+                    "condition": "{{eq .messageType \"4\"}}",
+                    "opers": [
+                        "{{set \"first_captcha\" \"true\"}}",
+                        "{{uploadVerifyCode .verifyCode | set \"randcodeUrl\"}}"
+                    ],
+                    "message": {
+                        "status": "output_verifycode",
+                        "data": "{{.randcodeUrl}}",
+                        "need_param": "randcode"
+                    },
+                    "goto": "get_randcode"
+                },
+                {
+                    "condition": "{{and (eq .messageType \"5\") (empty \"first_captcha\")}}",
+                    "opers": [
+                        "{{set \"first_captcha\" \"true\"}}",
+                        "{{uploadVerifyCode .verifyCode | set \"randcodeUrl\"}}"
+                    ],
+                    "message": {
+                        "status": "output_verifycode",
+                        "data": "{{.randcodeUrl}}",
+                        "need_param": "randcode"
+                    },
+                    "goto": "get_randcode"
+                },
+                {
+                    "condition": "{{eq .messageType \"5\"}}",
+                    "opers": [
+                        "{{uploadVerifyCode .verifyCode | set \"randcodeUrl\"}}"
+                    ],
+                    "delete_context": ["randcode"],
+                    "message": {
+                        "status": "wrong_verifycode",
+                        "data": "{{.randcodeUrl}}",
+                        "need_param": "randcode"
+                    },
+                    "goto": "get_randcode"
+                },
+                {
+                    "condition": "{{eq .messageType \"6\"}}",
+                    "delete_context": ["password2"],
+                    "message": {
+                        "status": "need_param",
+                        "data": "需要独立密码",
+                        "need_param": "password2"
+                    },
+                    "goto": "get_password2"
+                },
+                {
+                    "condition": "{{eq .messageType \"13\"}}",
+                    "delete_context": ["password2"],
+                    "message": {
+                        "status": "wrong_second_password",
+                        "data": "{{.message}}",
+                        "need_param": "password2"
+                    },
+                    "goto": "get_password2"
+                },
+                {
+                    "condition": "{{containAny \"0\" \"14\" \"15\" \"16\" \"17\" \"18\" \"19\" \"20\" \"21\" \"22\" \"100\" \"101\" \"302\" \"1001\" \"1003\" \"1004\" \"1005\" .messageType}}",
+                    "opers": [
+                        "{{joinString \"hc_mail_\" .messageType | get | set \"failMsg\"}}",
+                        "{{empty \"failMsg\" | whichOne \"{{.message}}\" \"{{.failMsg}}\" | set \"failMsg\"}}"
+                    ],
+                    "message":{
+                        "status": "fail",
+                        "data": "{{.failMsg}}"
+                    }
+                }
+            ]
+        },
+        {
+            "tag": "get_randcode",
+            "need_param": "randcode",
+            "actions": [
+                {
+                    "condition": "{{empty \"randcode\"}}",
+                    "delete_context": ["randcode"],
+                    "goto": "get_randcode"
+                }
+            ]
+        },
+        {
+            "tag": "captcha",
+            "page": "http://mfa.yirendai.com/api/validCode",
+            "method": "POST",
+            "params": {
+                "appemailkey": "{{.appemailkey}}",
+                "validCode": "{{.randcode}}"
+            },
+            "response_timeout": 300,
+            "context_opers": [
+                "{{extractJson \"code\" ._body | set \"errorCode\"}}",
+                "{{extractJson \"msg\" ._body | set \"message\"}}"
+            ],
+            "actions": [
+                {
+                    "condition": "{{eq .errorCode \"0\"}}",
+                    "goto": "check_status"
+                },
+                {
+                    "condition": "{{ne .errorCode \"0\"}}",
+                    "opers": [
+                        "{{joinString \"hc_mail_\" .errorCode | get | set \"failMsg\"}}",
+                        "{{empty \"failMsg\" | whichOne \"{{.message}}\" \"{{.failMsg}}\" | set \"failMsg\"}}"
+                    ],
+                    "message":{
+                        "status": "fail",
+                        "data": "{{.failMsg}}"
+                    }
+                }
+            ]
+        },
+        {
+            "tag": "get_password2",
+            "need_param": "password2",
+            "actions": [
+                {
+                    "condition": "{{empty \"password2\"}}",
+                    "delete_context": ["password2"],
+                    "goto": "get_password2"
+                }
+            ]
+        },
+        {
+            "tag": "sms",
+            "page": "http://mfa.yirendai.com/api/independentPassword?appemailkey={{.appemailkey}}&ivdPassword={{.password2}}",
+            "method": "GET",
+            "response_timeout": 300,
+            "context_opers": [
+                "{{extractJson \"code\" ._body | set \"errorCode\"}}",
+                "{{extractJson \"msg\" ._body | set \"message\"}}"
+            ],
+            "actions": [
+                {
+                    "condition": "{{eq .errorCode \"0\"}}",
+                    "goto": "check_status"
+                },
+                {
+                    "condition": "{{ne .errorCode \"0\"}}",
+                    "opers": [
+                        "{{joinString \"hc_mail_\" .errorCode | get | set \"failMsg\"}}",
+                        "{{empty \"failMsg\" | whichOne \"{{.message}}\" \"{{.failMsg}}\" | set \"failMsg\"}}"
+                    ],
+                    "message":{
+                        "status": "fail",
+                        "data": "{{.failMsg}}"
+                    }
+                }
+            ]
+        },
+        {
+            "tag": "get_result",
+            "page": "http://mfa.yirendai.com/api/obtainBills",
+            "method": "POST",
+            "params": {
+                "appemailkey": "{{.appemailkey}}"
+            },
+            "response_timeout": 300,
+            "context_opers": [
+                "{{extractJson \"code\" ._body | set \"errorCode\"}}",
+                "{{extractJson \"msg\" ._body | set \"message\"}}"
+            ],
+            "actions": [
+                {
+                    "condition": "{{eq .errorCode \"0\"}}",
+                    "login_success": true,
+                    "opers": [
+                        "{{writeToParser \"hc_mail\" .username ._body}}"
+                    ]
+                },
+                {
+                    "condition": "{{ne .errorCode \"0\"}}",
+                    "opers": [
+                        "{{joinString \"hc_mail_\" .errorCode | get | set \"failMsg\"}}",
+                        "{{empty \"failMsg\" | whichOne \"{{.message}}\" \"{{.failMsg}}\" | set \"failMsg\"}}"
+                    ],
+                    "message":{
+                        "status": "fail",
+                        "data": "{{.failMsg}}"
+                    }
+                }
+            ]
+        }
+    ]
+}

@@ -1,0 +1,166 @@
+{
+    "steps": [
+        {
+            "context_opers": [
+                "{{notEmpty \"qr_taobao_shop\" | whichOne \"tbloan\" \"tmloan\" | set \"which_loan\"}}",
+                "{{notEmpty \"qr_taobao_shop\" | whichOne \"taobao\" \"tmall\" | set \"shop_type\"}}",
+                "{{randIntn 9 | plus 1 | set \"idx\"}}",
+                "{{intToString .idx | set \"idx\"}}",
+                "{{joinString \"C152213512529648906144844152213512529655\" .idx | set \"umid_token\"}}",
+                "{{add \"check_times\" 1}}"
+            ]
+        },
+        {
+            "page": "https://login.taobao.com/member/login.jhtml?from=taobaoindex&style=&sub=true&redirect_url=http%3A%2F%2Fi.taobao.com%2Fmy_taobao.htm",
+            "method": "GET"
+        },
+        {
+            "tag": "generateQRCode",
+            "page": "https://qrlogin.taobao.com/qrcodelogin/generateQRCode4Login.do?adUrl=&adImage=&adText=&viewFd4PC=&viewFd4Mobile&appkey=00000000&umid_token={{.umid_token}}&from=taobaoindex&_ksTS={{nowMillTimestamp}}_{{randIntn 1000}}&callback=jsonp47",
+            "method": "GET",
+            "header": {
+                "Host": "qrlogin.taobao.com",
+                "Referer": "https://login.taobao.com/member/login.jhtml?from=taobaoindex&style=&sub=true&redirect_url=http%3A%2F%2Fi.taobao.com%2Fmy_taobao.htm"
+            },
+            "context_opers": [
+                "{{extractRegex \"url\\\":\\\"([^\\\"]+)\\\"\" ._body | set \"qr_url\"}}",
+                "{{extractRegex \"lgToken\\\":\\\"([a-z0-9]+)\\\"\" ._body | set \"qr_lgToken\"}}",
+                "{{set \"checkQrcodeTimes\" 1}}"
+            ],
+            "response_timeout": 10,
+            "visit_times": 3,
+            "output_filename": "qr_code.ajax",
+            "actions": [
+                {
+                    "condition": "{{empty \"qr_url\"}}",
+                    "message":{
+                        "status": "fail",
+                        "data": "网络错误"
+                    }
+                }
+            ]
+        },
+        {
+            "page": "https:{{.qr_url}}",
+            "method": "GET",
+            "header": {
+                "Host": "img.alicdn.com",
+                "Referer": "https://login.taobao.com/member/login.jhtml?from=taobaoindex&style=&sub=true&redirect_url=http%3A%2F%2Fi.taobao.com%2Fmy_taobao.htm"
+            },
+            "upload_image": {
+                "format": "png",
+                "context_key": "qr_img"
+            },
+            "response_timeout": 10,
+            "visit_times": 3,
+            "output_filename": "qr_code.png",
+            "message": {
+                "status": "OutputVerifyQrcode",
+                "data": "{{.qr_img}}"
+            },
+            "actions": [
+                {
+                    "condition": "{{empty \"qr_img\"}}",
+                    "message":{
+                        "status": "fail",
+                        "data": "网络错误"
+                    }
+                }
+            ]
+        },
+        {
+            "tag": "checkQrScan",
+            "page": "https://qrlogin.taobao.com/qrcodelogin/qrcodeLoginCheck.do?lgToken={{.qr_lgToken}}&defaulturl=http%3A%2F%2Fi.taobao.com%2Fmy_taobao.htm&_ksTS={{nowMillTimestamp}}_{{randIntn 1000}}&callback=jsonp439",
+            "method": "GET",
+            "header": {
+                "Host": "qrlogin.taobao.com",
+                "Referer": "https://login.taobao.com/member/login.jhtml?from=taobaoindex&style=&sub=true&redirect_url=http%3A%2F%2Fi.taobao.com%2Fmy_taobao.htm"
+            },
+            "context_opers": [
+                "{{extractRegex \"code\\\":\\\"(\\\\d+)\" ._body | set \"qr_ret\"}}",
+                "{{extractRegex \"url\\\":\\\"(https://[^\\\"]+)\\\"\" ._body | set \"forwordUrl\"}}",
+                "{{add \"checkQrcodeTimes\" 1}}",
+                "{{add \"check_times\" 1}}"
+            ],
+            "response_timeout": 10,
+            "visit_times": 5,
+            "goto_times": 250,
+            "output_filename": "qrcode_login_check.ajax",
+            "actions": [
+                {
+                    "condition": "{{eq .qr_ret \"10006\"}}",
+                    "goto": "login_success"
+                },
+                {
+                    "condition": "{{gt .check_times 70}}",
+                    "message":{
+                        "status": "fail",
+                        "data": "尝试超时"
+                    }
+                },
+                {
+                    "condition": "{{or (empty \"qr_ret\") (eq .qr_ret \"10004\") (eq .qr_ret \"10005\")}}",
+                    "goto": "generateQRCode"
+                },
+                {
+                    "condition": "{{eq .qr_ret \"10001\"}}",
+                    "goto": "checkQrScan"
+                },
+                {
+                    "condition": "{{lt 33 .checkQrcodeTimes}}",
+                    "goto":"generateQRCode"
+                },
+                {
+                    "condition": "{{eq .qr_ret \"10000\"}}",
+                    "goto": "checkQrScan"
+                },
+                {
+                    "condition": "{{eq 1 1}}",
+                    "goto": "checkQrScan"
+                }
+            ],
+            "sleep": 3
+        },
+        {
+            "tag": "login_success",
+            "condition": "{{eq .qr_ret \"10006\"}}",
+            "page": "{{.forwordUrl}}&umid_token={{.umid_token}}",
+            "method": "GET",
+            "header": {
+                "Host": "login.taobao.com",
+                "Referer": "https://login.taobao.com/member/login.jhtml?from=taobaoindex&style=&sub=true&redirect_url=http%3A%2F%2Fi.taobao.com%2Fmy_taobao.htm"
+            },
+            "response_timeout": 10,
+            "visit_times": 3,
+            "doc_type": "html",
+            "output_filename": "my_taobao.htm",
+            "qrcode_success": true,
+            "context_opers": [
+                "{{extractHtml \"#mtb-userid&attr=value\" ._body | set \"username\"}}",
+                "{{extractHtml \"#mtb-nickname&attr=value\" ._body | set \"origin_wangwang\"}}",
+                "{{extractHtml \"#J_MyAlipayInfo a:contains('我的支付宝')&attr=href&prefix=https:\" ._body | set \"alipay_url\" | urlQueryEscape | set \"alipay_encode_url\"}}",
+                "{{extractRegex \"src=([_a-zA-Z0-9]*)\" .alipay_url | set \"alipay_src\"}}",
+                "{{extractRegex \"sign_from=([0-9]*)\" .alipay_url | set \"alipay_sign_from\"}}",
+                "{{extractRegex \"sign_account_no=([0-9a-zA-Z]*)\" .alipay_url | set \"alipay_account_no\"}}"
+            ],
+            "actions": [
+                {
+                    "condition": "{{empty \"username\"}}",
+                    "message":{
+                        "status": "fail",
+                        "data": "网络错误"
+                    }
+                }
+            ],
+            "extractor": {
+                "username": "c:{{.username}}"
+            }
+        },
+        {
+            "require": {
+                "file": "ali.json",
+                "from": "https://myseller.taobao.com/ajax/widget.do?t={{nowMillTimestamp}}&name=seller_info"
+            }
+        }
+    ]
+}

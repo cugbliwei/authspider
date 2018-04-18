@@ -1,0 +1,55 @@
+{
+    "disable_outpubkey": true,
+    "steps": [
+        {
+            "need_param": "phone",
+            "context_opers": [
+                "{{randIntn 19 | plus 1 | set \"idx\"}}"
+            ]
+        },
+        {
+            "get_from_redis": "sogou_cookie_{{.idx}}",
+            "use_cookie": "{{._body}}"
+        },
+        {
+            "tag": "query_page",
+            "page": "https://www.sogou.com/web?query={{.phone}}",
+            "header": {
+                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.113 Safari/537.36"
+            },
+            "method": "GET",
+            "response_timeout": 30,
+            "visit_times": 1,
+            "doc_type": "html",
+            "output_filename": "{{.phone}}.html",
+            "context_opers": [
+                "{{extractRegex \"queryphoneinfo.*?=.*?'([^']*)'\" ._body | set \"result\"}}"
+            ],
+            "extractor": {
+                "phone": "c:{{.phone}}",
+                "result": "c:{{.result}}"
+            },
+            "actions": [
+                {
+                    "condition": "{{contains \"请输入验证码\" ._body}}",
+                    "opers": [
+                        "{{set \"page_idx\" .page_idx_tmp}}"
+                    ],
+                    "goto": "change_cookie"
+                }
+            ]
+        },
+        {
+            "tag": "change_cookie",
+            "condition": "{{notEmpty \"page_idx\"}}",
+            "get_from_redis": "sogou_cookie_{{.idx}}",
+            "use_cookie": "{{._body}}",
+            "actions": [
+                {
+                    "condition": "{{eq 1 1}}",
+                    "goto": "query_page"
+                }
+            ]
+        }
+    ]
+}

@@ -1,0 +1,25 @@
+{
+    "disable_outpubkey": true,
+    "steps": [
+        {
+            "need_param": "phone",
+            "page": "https://www.baidu.com/s?wd={{.phone}}",
+            "method": "GET",
+            "response_timeout": 30,
+            "visit_times": 3,
+            "doc_type": "html",
+            "output_filename": "search_{{.phone}}.html",
+            "extractor": {
+                "搜索词": "c:{{.phone}}",
+                "结果1": ".result-op .c-span-last @index=0&replace= :,\t:,\n:",
+                "结果2": {
+                    "_root": "#content_left .result",
+                    "_array": true,
+                    "标题": "h3.t",
+                    "摘要": "div.c-abstract",
+                    "链接": "h3 a&attr=href"
+                } 
+            }
+        }
+    ]
+}

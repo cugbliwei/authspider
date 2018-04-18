@@ -1,0 +1,181 @@
+{
+    "disable_outpubkey": true,
+    "steps": [
+        {
+            "need_param": "number,link",
+            "get_from_redis": "cfae_{{.number}}",
+            "context_opers": [
+                "{{len ._body | set \"tmp_result_length\"}}",
+                "{{if contains \"financiatwo\" .link}}{{set \"type\" \"property\"}}{{end}}",
+                "{{if contains \"projectDetailupdate\" .link}}{{set \"type\" \"capital\"}}{{end}}"
+            ],
+            "actions": [
+                {
+                    "condition": "{{or (contains \"no_exist\" .number) (contains \"no_exist\" .link)}}",
+                    "message": {
+                        "status": "fail",
+                        "data": "参数错误"
+                    }
+                },
+                {
+                    "condition": "{{gt .tmp_result_length 10}}",
+                    "message": {
+                        "status": "fail",
+                        "data": "已经抓取过"
+                    }
+                }
+            ]
+        },
+        {
+            "condition": "{{eq \"property\" .type}}",
+            "page": "{{.link}}",
+            "method": "GET",
+            "response_timeout": 30,
+            "visit_times": 3,
+            "doc_type": "html",
+            "output_filename": "property.html",
+            "context_opers": [
+                "{{joinString \"cfae_\" .number | set \"tmp_key\"}}",
+                "{{writeToRedis .tmp_key .tmp_key 86400}}",
+                "{{extractHtml \":this&attr=html&regex=var\\\\s*objectid\\\\s*=\\\\s*\\\"(.*)\\\";\" ._body | set \"objectid\"}}"
+            ],
+            "extractor_new": true,
+            "extractor": {
+                "项目类型": "c:股权项目",
+                "项目概况": {
+                    "项目名称": ":this&attr=html&regex=var\\s*scred\\s*=\\s*\"(.*)\";",
+                    "挂牌价格": ":this&attr=html&regex=var\\s*objectPrice\\s*=\\s*\"(.*)\";",
+                    "挂牌起始日期": ":this&attr=html&regex=\"#gj7\"\\).html\\(\"(.*)\"\\);",
+                    "挂牌期满日期": ":this&attr=html&regex=\"#gj8\"\\).html\\(\"(.*)\"\\);"
+                },
+                "标的企业基本情况": {
+                    "法定代表人": ":this&attr=html&regex=\"#gjd5\"\\).html\\(\"(.*)\"\\);",
+                    "成立时间": ":this&attr=html&regex=\"#gjd6\"\\).html\\(\"(.*)\"\\);",
+                    "注册资本": ":this&attr=html&regex=\"#gjd8\"\\).html\\(\"(.*)\"\\);",
+                    "所属行业": ":this&attr=html&regex=\"#gjd10\"\\).html\\(\"(.*)\"\\);",
+                    "经济类型": ":this&attr=html&regex=\"#gjd2\"\\).html\\(\"(.*)\"\\);",
+                    "经营规模": ":this&attr=html&regex=\"#gjd12\"\\).html\\(\"(.*)\"\\);",
+                    "经营范围": ":this&attr=html&regex=\"#gjd4\"\\).html\\(\"(.*)\"\\);"
+                },
+                "主要财务指标": {
+                    "年度": ":this&attr=html&regex=\"#niandu\"\\).html\\(\"(.*)\"\\);",
+                    "营业收入": ":this&attr=html&regex=/\\*\\s*\\$\\(\"#gjd13\"\\).html\\(\".*\"\\);\\s*\\*/\\s*\\$\\(\"#gjd13\"\\).html\\(\"(.*)\"\\);",
+                    "营业利润": ":this&attr=html&regex=/\\*\\s*\\$\\(\"#gjd14\"\\).html\\(\".*\"\\);\\s*\\*/\\s*\\$\\(\"#gjd14\"\\).html\\(\"(.*)\"\\);",
+                    "净利润": ":this&attr=html&regex=/\\*\\s*\\$\\(\"#gjd15\"\\).html\\(formatCurrency\\(\".*\"\\)\\);\\s*\\*/\\s*\\$\\(\"#gjd15\"\\).html\\(formatCurrency\\(\"(.*)\"\\)\\);",
+                    "资产总计": ":this&attr=html&regex=/\\*\\s*\\$\\(\"#gjd16\"\\).html\\(formatCurrency\\(\".*\"\\)\\);\\s*\\*/\\s*\\$\\(\"#gjd16\"\\).html\\(formatCurrency\\(\"(.*)\"\\)\\);",
+                    "负债总计": ":this&attr=html&regex=/\\*\\s*\\$\\(\"#gjd17\"\\).html\\(formatCurrency\\(\".*\"\\)\\);\\s*\\*/\\s*\\$\\(\"#gjd17\"\\).html\\(formatCurrency\\(\"(.*)\"\\)\\);",
+                    "所有者权益": ":this&attr=html&regex=/\\*\\s*\\$\\(\"#gjd18\"\\).html\\(formatCurrency\\(\".*\"\\)\\);\\s*\\*/\\s*\\$\\(\"#gjd18\"\\).html\\(formatCurrency\\(\"(.*)\"\\)\\);",
+                    "审计机构": ":this&attr=html&regex=/\\*\\s*\\$\\(\"#gjd19\"\\).html\\(\".*\"\\);\\s*\\*/\\s*\\$\\(\"#gjd19\"\\).html\\(\"(.*)\"\\);"
+                },
+                "估值": {
+                    "资产总计-账面价值": ":this&attr=html&regex=\"#gja12\"\\).html\\(formatCurrency\\(\"(.*)\"\\)\\);",
+                    "资产总计-评估价值": ":this&attr=html&regex=\"#gja13\"\\).html\\(formatCurrency\\(\"(.*)\"\\)\\);",
+                    "负债总计-账面价值": ":this&attr=html&regex=\"#gja14\"\\).html\\(formatCurrency\\(\"(.*)\"\\)\\);",
+                    "负债总计-评估价值": ":this&attr=html&regex=\"#gja15\"\\).html\\(formatCurrency\\(\"(.*)\"\\)\\);",
+                    "净资产-账面价值": ":this&attr=html&regex=\"#gja16\"\\).html\\(formatCurrency\\(\"(.*)\"\\)\\);",
+                    "净资产-评估价值": ":this&attr=html&regex=\"#gja17\"\\).html\\(formatCurrency\\(\"(.*)\"\\)\\);",
+                    "转让标的对应评估值": ":this&attr=html&regex=\"#gja18\"\\).html\\(formatCurrency\\(\"(.*)\"\\)\\);"
+                },
+                "转让方简况": {
+                    "转让方名称": ":this&attr=html&regex=\"#gjw1\"\\).html\\(\"(.*)\"\\);",
+                    "经济类型": ":this&attr=html&regex=\"#gjw3\"\\).html\\(\"(.*)\"\\);",
+                    "公司类型（经济性质）": ":this&attr=html&regex=\"#gjw4\"\\).html\\(\"(.*)\"\\);",
+                    "持有产(股)权比例": ":this&attr=html&regex=\"#gjw5\"\\).html\\(\"(.*)\"[+]*\"%\"\\);",
+                    "拟转让产(股)权比例": ":this&attr=html&regex=\"#gjw6\"\\).html\\(\"(.*)\"[+]*\"%\"\\);"
+                },
+                "保证金": ":this&attr=html&regex=\"#gjc6\"\\).html\\(\"(.*)\"\\);"
+            }
+        },
+        {
+            "condition": "{{eq \"property\" .type}}",
+            "page": "https://www.cfae.cn/newConnector/getGD?objectID={{.objectid}}",
+            "method": "GET",
+            "response_timeout": 30,
+            "visit_times": 3,
+            "doc_type": "json",
+            "output_filename": "property_stock.json",
+            "extractor_new": true,
+            "extractor": {
+                "标的企业基本情况": {
+                    "股权结构": {
+                        "_array": true,
+                        "股东名称": "STOCKHOLDERNAME",
+                        "比例": "STOCKSCALE"
+                    }
+                }
+            }
+        },
+        {
+            "condition": "{{eq \"capital\" .type}}",
+            "page": "{{.link}}",
+            "method": "GET",
+            "response_timeout": 30,
+            "visit_times": 3,
+            "doc_type": "html",
+            "output_filename": "capital.html",
+            "context_opers": [
+                "{{joinString \"cfae_\" .number | set \"tmp_key\"}}",
+                "{{writeToRedis .tmp_key .tmp_key 86400}}",
+                "{{extractHtml \":this&attr=html&regex=\\\"#gjbt\\\"\\\\).html\\\\(\\\"(.*)\\\"\\\\);\" ._body | set \"name\"}}",
+                "{{extractHtml \":this&attr=html&regex=\\\"#sa13\\\"\\\\).html\\\\(\\\"(.*)\\\"\\\\+\\\"~\\\"\\\\+\\\".*\\\"\\\\);\" ._body | set \"start\"}}",
+                "{{extractHtml \":this&attr=html&regex=\\\"#sa13\\\"\\\\).html\\\\(\\\".*\\\"\\\\+\\\"~\\\"\\\\+\\\"(.*)\\\"\\\\);\" ._body | set \"end\"}}",
+                "{{extractRegex \"var\\\\s*zrqttj\\\\s*=\\\\s*\\\"(.*)\\\";\" ._body | set \"source\"}}"
+            ],
+            "extractor_source": "{{.source}}",
+            "extractor_new": true,
+            "extractor": {
+                "项目类型": "c:增资项目",
+                "项目概况": {
+                    "项目名称": "c:{{.name}}",
+                    "拟募集资金金额": "tbody tr:contains('拟募集资金总额') td @index=1",
+                    "挂牌起始日期": "c:{{.start}}",
+                    "挂牌期满日期": "c:{{.end}}",
+                    "拟募集资金对应持股比例": "tbody tr:contains('拟募集资金对应持股比例') td @index=1",
+                    "增资后企业股权结构": "tbody tr:contains('增资后企业股权结构') td @index=1",
+                    "募集资金用途": "tbody tr:contains('募集资金用途') td @index=1"
+                },
+                "增资基本情况": {
+                    "法定代表人": "tbody tr:contains('法定代表人') td @index=1",
+                    "成立日期": "tbody tr:contains('成立日期') td @index=1",
+                    "注册资本": "tbody tr:contains('注册资本') td @index=1",
+                    "所属行业": "tbody tr:contains('融资方所属行业') td @index=3",
+                    "经营范围": "tbody tr:contains('经营范围') td @index=1",
+                    "股权结构": {
+                        "_root": "tr:contains('股东名称（前十位）') ~ tr @slice=0:10",
+                        "_array": true,
+                        "股东名称": "td @index=0",
+                        "比例": "td @index=1"
+                    }
+                },
+                "主要财务指标": {
+                    "@key tr:contains('主要财务指标') ~ tr @index=0 td @index=0": {
+                        "资产总额": "tr:contains('主要财务指标') ~ tr @index=1 td @index=0",
+                        "负债总额": "tr:contains('主要财务指标') ~ tr @index=1 td @index=1",
+                        "所有者权益": "tr:contains('主要财务指标') ~ tr @index=1 td @index=2",
+                        "营业收入": "tr:contains('主要财务指标') ~ tr @index=3 td @index=0",
+                        "利润总额": "tr:contains('主要财务指标') ~ tr @index=3 td @index=1",
+                        "净利润": "tr:contains('主要财务指标') ~ tr @index=3 td @index=2"
+                    },
+                    "@key tr:contains('主要财务指标') ~ tr @index=4 td @index=0": {
+                        "资产总额": "tr:contains('主要财务指标') ~ tr @index=5 td @index=0",
+                        "负债总额": "tr:contains('主要财务指标') ~ tr @index=5 td @index=1",
+                        "所有者权益": "tr:contains('主要财务指标') ~ tr @index=5 td @index=2",
+                        "营业收入": "tr:contains('主要财务指标') ~ tr @index=7 td @index=0",
+                        "利润总额": "tr:contains('主要财务指标') ~ tr @index=7 td @index=1",
+                        "净利润": "tr:contains('主要财务指标') ~ tr @index=7 td @index=2"
+                    },
+                    "@key tr:contains('主要财务指标') ~ tr @index=8 td @index=0": {
+                        "资产总额": "tr:contains('主要财务指标') ~ tr @index=9 td @index=0",
+                        "负债总额": "tr:contains('主要财务指标') ~ tr @index=9 td @index=1",
+                        "所有者权益": "tr:contains('主要财务指标') ~ tr @index=9 td @index=2",
+                        "营业收入": "tr:contains('主要财务指标') ~ tr @index=11 td @index=0",
+                        "利润总额": "tr:contains('主要财务指标') ~ tr @index=11 td @index=1",
+                        "净利润": "tr:contains('主要财务指标') ~ tr @index=11 td @index=2"
+                    }
+                },
+                "投资人资格条件": "tbody tr td:contains('投资方资格条件') ~ td @index=0",
+                "保证金": "tbody tr td:contains('保证金金额或比例') ~ td @index=0"
+            }
+        }
+    ]
+}

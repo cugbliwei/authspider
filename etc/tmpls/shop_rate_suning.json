@@ -1,0 +1,148 @@
+{
+	"disable_outpubkey": true,
+	"steps": [
+		{
+			"need_param": "shop_id,shop_type",
+			"context_opers": [
+				"{{set \"username\" .shop_id}}"
+			],
+			"actions":[
+				{
+					"condition": "{{and (not hasPrefix .shop_id \"http://\") (not hasPrefix .shop_id \"https://\")}}",
+					"opers": [
+						"{{set \"username\" \"default\"}}"
+					],
+					"message":{
+						"status":"fail",
+						"data": "bad shop_id format"
+					}
+				},
+				{
+					"condition": "{{not contains \"suning.com\" .shop_id}}",
+					"message": {
+						"status": "fail",
+						"data": "bad shop_id format"
+					}
+				}
+			]
+		},
+		{
+			"tag": "index_page",
+			"condition": "{{notEmpty \"shop_id\"}}",
+			"page": "{{.shop_id}}",
+			"method": "GET",
+			"doc_type": "html",
+			"response_timeout": 4,
+			"visit_times": 3,
+			"output_filename":"shopHome.html",
+			"context_opers": [
+				"{{extractHtml \"#chead_indexUrl\" ._body | set \"shop_name\"}}",
+				"{{extractRegex \"shop.suning.com/(\\\\d+)/\" ._body | set \"shop_no\" | set \"username\"}}",
+				"{{extractRegex \"shopDomain\\\\s*:\\\\s*\\\"(.*)\\\"\" ._body | set \"shop_domain\"}}",
+				"{{if hasPrefix .shop_domain \"//\"}}{{joinString \"https:\" .shop_domain | set \"shop_domain\"}}{{end}}",
+				"{{if not hasSuffix .shop_domain \"/\"}}{{joinString .shop_domain \"/\" | set \"shop_domain\"}}{{end}}",
+				"{{joinString .shop_domain \"jsonp/\" .shop_no \"/shopinfo/shopinfo.html?callback=shopinfo\" | set \"shop_info_url\"}}",
+				"{{set \"hotsell_url_prefix\" \"http://csearch.suning.com/emall/cshop/queryByKeyword.do\"}}"
+			],
+			"actions":[
+				{
+					"condition": "{{empty \"shop_no\"}}",
+					"message":{
+						"status":"fail",
+						"data": "店铺链接错误"
+					}
+				}
+			]
+		},
+		{
+			"tag": "get_shop_info",
+			"condition": "{{notEmpty \"shop_info_url\"}}",
+			"page": "{{.shop_info_url}}",
+			"method": "GET",
+			"doc_type": "json",
+			"response_timeout": 4,
+			"visit_times": 3,
+			"output_filename": "shopInfo.json",
+			"context_opers": [
+				"{{extractRegex \"shopinfo\\\\((.+)\\\\)\" ._body | set \"meat\"}}"
+			],
+			"extractor_source": "{{.meat}}",
+			"extractor": {
+				"shopName": "shopName",
+				"shop_name": "shopName",
+				"SHOP_INFO": {
+					"shopStar": "star",
+					"companyAddress": "companyAddress",
+					"companyCity": "companyCity",
+					"countryName": "countryName",
+					"companyProvince": "companyProvince",
+					"indexUrl": "indexUrl",
+					"shopName": "shopName",
+					"supplierCode": "supplierCode",
+					"商品评分": {
+						"score": "Qstar",
+						"compare": "Qcompare",
+						"compareValue": "Qpercent",
+						"distribute": {
+							"star1": "Q1",
+							"star2": "Q2",
+							"star3": "Q3",
+							"star4": "Q4",
+							"star5": "Q5"
+						}
+					},
+					"服务评分": {
+						"score": "Astar",
+						"compare": "Acompare",
+						"compareValue": "Apercent",
+						"distribute": {
+							"star1": "A1",
+							"star2": "A2",
+							"star3": "A3",
+							"star4": "A4",
+							"star5": "A5"
+						}
+					},
+					"物流评分": {
+						"score": "Dstar",
+						"compare": "Dcompare",
+						"compareValue": "Dpercent",
+						"distribute": {
+							"star1": "D1",
+							"star2": "D2",
+							"star3": "D3",
+							"star4": "D4",
+							"star5": "D5"
+						}
+					}
+				}
+			}
+		},
+		{
+			"tag": "hot_sell_count_desc",
+			"page": "{{.hotsell_url_prefix}}?vendor_Id=00{{.shop_no}}&keyword=&start=0&rows=100&sortField=totalCount-desc&cf=price:&callback=jsonpQueryByKeyword",
+			"doc_type": "json",
+			"response_timeout": 4,
+			"visit_times": 3,
+			"output_filename": "hot_sell_count_desc.jsonp",
+			"context_opers": [
+				"{{extractRegex \"jsonpQueryByKeyword\\\\((.+)\\\\)\" ._body | set \"meat\"}}"
+			],
+			"extractor_source": "{{.meat}}",
+			"extractor": {
+				"hotsell": {
+					"_root": "goods",
+					"_array": true,
+					"title": "title",
+					"catentry_Id": "catentry_Id",
+					"totalCount": "totalCount",
+					"price": "price",
+					"countOfArticle": "countOfarticle"
+				}
+			}
+		},	
+		{
+			"tag": "finish"
+		}
+	]
+}

@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Insert title here</title>
+</head>
+<body>
+id:<input id="fm-login-id"><br/>
+pass:<input id="fm-login-password">
+<input type="button" id="fm-login-submit">
+
+
+<span id="target_ua"></span>
+
+<script type="text/javascript">
+var form_tk = "QcEQax9LNB3fU7vRCF73XtwFRE1k7cy0";
+var json_ua = null;// 分别存储token和ua数据
+function init(){
+    var search=document.location.search;
+    form_tk=/token=(.*)/.exec(search)[1];
+    if(!form_tk){
+        //alert("failed to get sid");
+    }
+	console.log("got token:", form_tk);
+}
+init();
+</script>
+<script type="text/javascript" src="ua_consumeprod_record_advanced.2.js"></script>
+<script type="text/javascript">
+setInterval(function(){
+	console.log(window["json_ua"]);
+	document.getElementById("target_ua").textContent=window['json_ua'];
+}, 400);
+</script>
+</body>
+</html>

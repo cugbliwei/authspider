@@ -1,0 +1,181 @@
+{
+    "steps": [
+        {
+            "context_opers": [
+                "{{add \"check_times\" 1}}"
+            ]
+        },
+        {
+            "tag":"generateQRCode",
+            "page":"https://qr.m.jd.com/show?appid=133&size=147&t={{nowMillTimestamp}}",
+            "method":"GET",
+            "header":{
+                "Host":"qr.m.jd.com"
+            },
+            "upload_image": {
+                "format": "png",
+                "context_key": "qr_img"
+            },
+            "response_timeout": 10,
+            "visit_times": 3,
+            "output_filename": "qr_code.png",
+            "message": {
+                "status": "OutputVerifyQrcode",
+                "data": "{{.qr_img}}"
+            },
+            "actions": [
+                {
+                    "condition": "{{empty \"qr_img\"}}",
+                    "message":{
+                        "status": "fail",
+                        "data": "网络错误"
+                    }
+                }
+            ]
+        },
+        {
+            "tag":"sync_cookie",
+            "page":"https://qr.m.jd.com/test",
+            "context_opers":[
+                "{{if empty \"cookie_wlfstk_smdl\"}}{{set \"cookie_wlfstk_smdl\" \"\"}}{{end}}"
+            ]
+        },
+        {
+            "tag":"checkQrScan",
+            "page":"https://qr.m.jd.com/check?callback=jQuery1171764&appid=133&token={{.cookie_wlfstk_smdl}}&_={{nowMillTimestamp}}",
+            "method":"GET",
+            "header":{
+                "Host": "qr.m.jd.com",
+                "Connection": "keep-alive",
+                "User-Agent": "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.10; rv:50.0) Gecko/20100101 Firefox/50.0",
+                "Referer": "https://passport.jd.com/new/login.aspx?ReturnUrl=https%3A%2F%2Fmall.jd.com%2Findex-1000002548.html"
+            },
+            "context_opers": [
+                "{{extractRegex \"code\\\" : ([0-9]+),\" ._body | set \"qr_ret\"}}",
+                "{{extractRegex \"ticket\\\" : \\\"([a-zA-Z0-9_-]+)\" ._body | set \"qr_ticket\"}}",
+                "{{add \"check_times\" 1}}"
+            ],
+            "response_timeout": 10,
+            "visit_times": 5,
+            "goto_times": 250,
+            "output_filename": "qr_code2.ajax",
+            "actions": [
+                {
+                    "condition": "{{eq .qr_ret \"200\"}}",
+                    "goto": "jd_login_success"
+                },
+                {
+                    "condition": "{{gt .check_times 100}}",
+                    "message":{
+                        "status": "fail",
+                        "data": "尝试超时"
+                    }
+                },
+                {
+                    "condition": "{{or (eq .qr_ret \"201\") (eq .qr_ret \"202\")}}",
+                    "goto": "checkQrScan"
+                },
+                {
+                    "condition": "{{eq .qr_ret \"203\"}}",
+                    "goto": "generateQRCode"
+                },
+                {
+                    "condition": "{{eq 1 1}}",
+                    "goto": "checkQrScan"
+                }
+            ],
+            "sleep": 3
+        },
+        {
+            "tag": "jd_login_success",
+            "condition": "{{eq .qr_ret \"200\"}}",
+            "page":"https://passport.jd.com/uc/qrCodeTicketValidation?t={{.qr_ticket}}",
+            "method":"GET",
+            "header":{
+                "Host":"passport.jd.com",
+                "Referer":"https://passport.jd.com/uc/login"
+            },
+            "response_timeout": 10,
+            "visit_times": 3,
+            "output_filename": "qr_jd.htm",
+            "qrcode_success": true,
+            "context_opers": [
+                "{{extractJson \"url\" ._body | set \"returnUrl\"}}"
+            ],
+            "actions": [
+                {
+                    "condition": "{{empty \"returnUrl\"}}",
+                    "message":{
+                        "status": "fail",
+                        "data": "网络错误"
+                    }
+                },
+                {
+                    "condition": "{{contains \"dangerousVerify\" .returnUrl}}",
+                    "opers": [
+                        "{{if hasPrefix .returnUrl \"//\"}}{{joinString \"http:\" .returnUrl | set \"dangerousUrl\"}}{{end}}"
+                    ],
+                    "goto": "dangerous_verify"
+                }
+            ]
+        },
+		{
+			"tag": "dangerous_verify",
+			"condition": "{{notEmpty \"dangerousUrl\"}}",
+			"page": "{{.dangerousUrl}}",
+			"method": "GET",
+			"response_timeout": 10,
+			"visit_times": 2,
+			"output_filename": "dangerous_verify.html",
+			"doc_type": "html",
+			"context_opers": [
+				"{{set \"eid\" \"2POBRYOFXHJSXJ6TIYPA7ULVEZ27OWOY6LUIK52SD6JE3ZGPKFYMTHDISCWVIRAVEGE4WXBME5VA25EF5DHVFKQGBM\"}}",
+				"{{set \"fp\" \"6c4cd0afb1b10bf18e11e72b4ac5234c\"}}",
+				"{{extractHtml \"#keyValue&attr=value\" ._body | set \"key_value\"}}",
+				"{{extractHtml \".phone-text\" ._body | set \"dangerous_phone\"}}"
+			]
+		},
+		{
+			"tag": "dangerous_send_mobile_code",
+			"condition": "{{and (notEmpty \"dangerousUrl\") (notEmpty \"key_value\")}}",
+			"page": "http://safe.jd.com/dangerousVerify/getDownLinkCode.action?k={{.key_value}}&t={{nowMillTimestamp}}",
+			"method": "GET",
+			"header": {
+				"Accept": "application/json, text/javascript, */*; q=0.01",
+				"Accept-Language": "zh-CN,zh;q=0.8",
+				"Accept-Encoding": "gzip, deflate, br",
+				"X-Requested-With": "XMLHttpRequest",
+				"Referer": "{{.dangerousUrl}}"
+			},
+			"doc_type": "json",
+			"output_filename": "dangerous_getDownLinkCode.json",
+			"message": {
+				"need_param": "password2",
+				"status": "need_param",
+				"data": "{{.dangerous_phone}}"
+			}
+		},
+		{
+			"tag": "dangerous_send_back_code",
+			"need_param": "password2",
+			"condition": "{{and (notEmpty \"dangerousUrl\") (notEmpty \"key_value\")}}",
+			"page": "http://safe.jd.com/dangerousVerify/checkDownLinkCode.action?code={{.password2}}&k={{.key_value}}&t={{nowMillTimestamp}}&eid={{.eid}}&fp={{.fp}}",
+			"method": "GET",
+			"doc_type": "json",
+			"header": {
+				"Accept": "application/json, text/javascript, */*; q=0.01",
+				"Accept-Language": "zh-CN,zh;q=0.8",
+				"Accept-Encoding": "gzip, deflate, br",
+				"X-Requested-With": "XMLHttpRequest",
+				"Referer": "{{.dangerousUrl}}"
+			},
+			"output_filename": "dangerous_checkDownLinkCode.json"
+		},
+		{
+            "require": {
+                "file": "jd.json",
+                "from": "https://shop.jd.com/index.action?xyz"
+            }
+		}
+    ]
+}

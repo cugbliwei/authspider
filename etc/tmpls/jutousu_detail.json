@@ -1,0 +1,31 @@
+{	
+    "disable_outpubkey": true,
+    "steps": [
+        {
+            "need_param": "no",
+            "actions": [
+                {
+                    "condition": "{{eq \"no_exist\" .no}}",
+                    "message":{
+                        "status": "fail",
+                        "data": "id为空"
+                    }
+                }
+            ]
+        },
+        {
+            "page": "http://ts.21cn.com/tousu/show/id/{{.no}}",
+            "header": {
+                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.113 Safari/537.36"
+            },
+            "method": "GET",
+            "response_timeout": 30,
+            "visit_times": 3,
+            "doc_type": "html",
+            "output_filename": "{{.no}}.html",
+            "extractor": {
+                "数量": "#postInfo td:contains('涉诉金额') ~ td"
+            }
+        }
+    ]
+}

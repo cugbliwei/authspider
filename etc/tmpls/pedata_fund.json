@@ -1,0 +1,66 @@
+{
+    "disable_outpubkey": true,
+    "steps": [
+        {
+            "need_param": "link,key",
+            "context_opers": [
+                "{{set \"username\" .link}}",
+                "{{randIntn 8 | set \"rand_index\"}}"
+            ]
+        },
+        {
+            "get_from_redis": "pedata_account_{{.rand_index}}",
+            "use_cookie": "{{._body}}"
+        },
+        {
+            "page": "{{urlEncode .link}}",
+            "method": "GET",
+            "response_timeout": 30,
+            "visit_times": 3,
+            "doc_type": "html",
+            "context_opers": [
+                "{{extractHtml \".m_xq_top h1\" ._body | set \"fund_name\"}}"
+            ],
+            "output_filename": "exit.html",
+            "extractor": {
+                "搜索词": "c:{{.key}}",
+                "基金链接": "c:{{.link}}",
+                "基金名": ".m_xq_top h1",
+                "基本信息": {
+                    "_root": ".m_xq_top",
+                    "英文简称": "p:contains('英文简称')&regex=.*：([\\s\\S]*)",
+                    "管理机构": "p:contains('管理机构') a",
+                    "管理机构链接": "p:contains('管理机构') a&attr=href",
+                    "成立时间": "p:contains('成立时间')&regex=.*：([\\s\\S]*)",
+                    "注册地点": "p:contains('注册地点')&regex=.*：([\\s\\S]*)",
+                    "基金总部": "p:contains('基金总部')&regex=.*：([\\s\\S]*)",
+                    "资本类型": "p:contains('资本类型')&regex=.*：([\\s\\S]*)",
+                    "基金类型": "p:contains('基金类型')&regex=.*：([\\s\\S]*)",
+                    "募集状态": "p:contains('募集状态')&regex=.*：([\\s\\S]*)",
+                    "目标规模": "p:contains('目标规模')&regex=.*：([\\s\\S]*)",
+                    "是否备案": "p:contains('是否备案')&regex=.*：([\\s\\S]*)",
+                    "币种": "p:contains('币种')&regex=.*：([\\s\\S]*)"
+                },
+                "基金描述": ".m_xq_one h2:contains('事件描述') ~ p @index=1",
+                "有限合伙人": {
+                    "_root": ".m_xq_one h2:contains('有限合伙人') ~ div",
+                    "_array": true,
+                    "LP": "p:contains('LP：')&regex=.*：([\\s\\S]*)",
+                    "LP类型": "p:contains('LP类型')&regex=.*：([\\s\\S]*)",
+                    "承诺金额": "p:contains('承诺金额')&regex=.*：([\\s\\S]*)",
+                    "轮次": "p:contains('轮次')&regex=.*：([\\s\\S]*)",
+                    "出资时间": "p:contains('出资时间')&regex=.*：([\\s\\S]*)"
+                }
+            },
+            "actions": [
+                {
+                    "condition": "{{empty \"fund_name\"}}",
+                    "message": {
+                        "status": "fail",
+                        "data": "网页内容错误"
+                    }
+                }
+            ]
+        }
+    ]
+}

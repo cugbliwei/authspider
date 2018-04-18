@@ -1,0 +1,251 @@
+{
+    "steps": [
+        {
+            "need_param": "sid"
+        },
+        {
+            "context_opers": [
+                "{{nowTimestamp | set \"timestamp\"}}",
+                "{{joinString .timestamp \"000\" | set \"timestamp\"}}",
+                "{{joinString \"http://www.dianping.com/shop/\" .sid | set \"shop_url\"}}",
+                "{{set \"captcha_times\" 1}}",
+                "{{set \"username\" .sid}}",
+                "{{set \"page\" \"1\"}}"
+            ],
+            "get_from_redis": "dianping_cookie",
+            "use_cookie": "{{._body}}"
+        },
+        {
+            "tag": "shop",
+            "page": "{{.shop_url}}",
+            "header": {
+                "Upgrade-Insecure-Requests": "1",
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8",
+                "Accept-Encoding": "gzip, deflate, br",
+                "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8"
+            },
+            "method": "GET",
+            "response_timeout": 60,
+            "output_filename": "shop_{{.sid}}.html",
+            "visit_times": 3,
+            "context_opers": [
+                "{{extractHtml \".breadcrumb a@last&attr=href\" ._body | set \"area_path\"}}",
+                "{{joinString \"http:\" .area_path | set \"area_url\"}}",
+                "{{extractRegex \"mainRegionId:(\\\\d+),\" ._body | set \"area_id\"}}",
+                "{{extractHtml \".breadcrumb a @index=1\" ._body | set \"type\"}}",
+                "{{trimSpace .type | set \"type\"}}"
+            ],
+            "extractor": {
+                "basic_infos": {
+                    "detail_infos": {
+                        "name": ".breadcrumb span@last",
+                        "avg_person": "#avgPriceTitle&regex=\\d+",
+                        "area": ".breadcrumb a@last",
+                        "address": ".expand-info.address span @index=1",
+                        "telephone": ".expand-info.tel span @index=1",
+                        "flavor": "#comment_score span @index=0&regex=:(.*)",
+                        "environment": "#comment_score span @index=1&regex=:(.*)",
+                        "service": "#comment_score span @index=2&regex=:(.*)"
+                    },
+                    "starts_infos": {
+                        "critc_num": "#reviewCount&regex=\\d+",
+                        "stars": ".brief-info span @index=0&attr=class&regex=\\d+",
+                        "type": "c:{{.type}}"
+                    }
+                }
+            },
+            "actions": [
+                {
+                    "condition": "{{contains \"spiderindefence\" ._url}}",
+                    "opers": [
+                        "{{getUrlParam \"requestCode\" ._url | set \"request_code\"}}",
+                        "{{set \"captcha_referer\" .shop_url}}",
+                        "{{set \"captcha_tag\" \"shop\"}}"
+                    ],
+                    "goto": "captcha"
+                }
+            ]
+        },
+        {
+            "tag": "shop_status",
+            "page": "http://www.dianping.com/poi/assistance/getshoppower.action?shopId={{.sid}}&model=0&_nr_force=",
+            "header": {
+                "Accept": "application/json, text/javascript",
+                "Referer": "http://www.dianping.com/shop/{{.sid}}"
+            },
+            "method": "GET",
+            "response_timeout": 30,
+            "doc_type": "json",
+            "output_filename": "shop_status_{{.sid}}.json",
+            "visit_times": 3,
+            "extractor": {
+                "basic_infos": {
+                    "status": "msg.powerString"
+                }
+            }
+        },
+        {
+            "tag": "area",
+            "page": "{{.area_url}}",
+            "header": {
+                "Referer": "{{if empty \"referer\"}}{{.shop_url}}{{else}}{{.referer}}{{end}}"
+            },
+            "method": "GET",
+            "proxy_switch": true,
+            "response_timeout": 60,
+            "output_filename": "area_{{.sid}}_{{.page}}.html",
+            "visit_times": 3,
+            "goto_times": 1000,
+            "sleep": 2,
+            "context_opers": [
+                "{{set \"referer\" .area_url}}",
+                "{{extractHtml \".next&attr=href\" ._body | set \"area_url\"}}"
+            ],
+            "extractor": {
+                "area_id": "c:{{.area_id}}",
+                "area_infos": {
+                    "_root": "#shop-all-list ul li[class]",
+                    "_array": true,
+                    "area_infos": {
+                        "areaName": ".txt .tag-addr a @index=1 span",
+                        "areaId": "c:{{.area_id}}",
+                        "shopName": ".txt .tit a h4",
+                        "shopUrl": ".txt .tit a @index=0&attr=href",
+                        "type": ".txt .tag-addr a @index=0 span",
+                        "address": ".txt .tag-addr .addr",
+                        "critic_num": ".txt .comment a @index=0 b",
+                        "avgPrice": ".txt .comment a @index=1 b&regex=([0-9]+)",
+                        "stars": ".txt .comment span&attr=class&regex=sml-str([0-9]+)",
+                        "flavor": ".txt .comment-list span @index=0 b",
+                        "environment": ".txt .comment-list span @index=1 b",
+                        "service": ".txt .comment-list span @index=2 b",
+                        "istopTrade": ".txt .tit .istopTrade"
+                    }
+                }
+            },
+            "actions": [
+                {
+                    "condition": "{{notEmpty \"area_url\"}}",
+                    "goto": "area"
+                },
+                {
+                    "condition": "{{contains \"spiderindefence\" ._url}}",
+                    "opers": [
+                        "{{getUrlParam \"requestCode\" ._url | set \"request_code\"}}",
+                        "{{set \"captcha_referer\" .area_url}}",
+                        "{{set \"captcha_tag\" \"area\"}}"
+                    ],
+                    "goto": "captcha"
+                },
+                {
+                    "condition": "{{eq 1 1}}",
+                    "goto": "finish"
+                }
+            ]
+        },
+        {
+            "tag": "finish",
+            "message": {
+                "status": "finish_fetch_data",
+                "data": "{\"username\": \"{{.username}}\"}}"
+            }
+        },
+        {
+            "tag": "captcha",
+            "page": "https://verify.meituan.com/v2/captcha?request_code={{.request_code}}&action=spiderindefence&randomId=0.835614522978011&uuid=chiese",
+            "header": {
+                "Referer": "https://verify.meituan.com/v2/web/general_page?action=spiderindefence&requestCode={{.request_code}}&platform=1&succCallbackUrl=https%3A%2F%2Foptimus-mtsi.meituan.com%2Foptimus%2FverifyResult%3ForiginUrl%3D{{.captcha_referer}}&theme=dianping"
+            },
+            "visit_times": 3,
+            "output_filename": "captcha_{{.captcha_times}}.png",
+            "context_opers": [
+                "{{base64Encode ._body | set \"captcha_base64\"}}"
+            ],
+            "actions": [
+                {
+                    "condition": "{{empty \"captcha_base64\"}}",
+                    "opers": [
+                        "{{add \"captcha_times\" 1}}"
+                    ],
+                    "goto": "captcha"
+                },
+                {
+                    "condition": "{{gt .captcha_times 40}}",
+                    "message":{
+                        "status": "fail",
+                        "data": "图片验证码错误次数过多"
+                    }
+                },
+                {
+                    "condition": "{{empty \"_body\"}}",
+                    "opers": [
+                        "{{add \"captcha_times\" 1}}"
+                    ],
+                    "goto": "captcha"
+                },
+                {
+                    "condition": "{{eq 1 1}}",
+                    "goto": "auth_captcha"
+                }
+            ]
+        },
+        {
+            "tag": "auth_captcha",
+            "page": "http://yisou.bdp.creditease.corp/captcha",
+            "method": "POST",
+            "params": {
+                "website": "dianping",
+                "img": "{{.captcha_base64}}"
+            },
+            "response_timeout": 30,
+            "visit_times": 2,
+            "context_opers": [
+                "{{set \"captcha\" ._body}}"
+            ]
+        },
+        {
+            "page": "https://verify.meituan.com/v2/ext_api/spiderindefence/verify?id=1",
+            "header": {
+                "Referer": "https://verify.meituan.com/v2/web/general_page?action=spiderindefence&requestCode={{.request_code}}&platform=1&succCallbackUrl=https%3A%2F%2Foptimus-mtsi.meituan.com%2Foptimus%2FverifyResult%3ForiginUrl%3D{{.captcha_referer}}&theme=dianping"
+            },
+            "params": {
+                "id": "71",
+                "request_code": "{{.request_code}}",
+                "captchacode": "{{.captcha}}",
+                "_token": ""
+            },
+            "method": "POST",
+            "response_timeout": 30,
+            "file_type": "json",
+            "visit_times": 3,
+            "output_filename": "result_{{.captcha_times}}.json",
+            "context_opers": [
+                "{{extractJson \"status\" ._body | set \"authresult\"}}"
+            ],
+            "actions": [
+                {
+                    "condition": "{{eq .authresult \"0\"}}",
+                    "goto": "{{.captcha_tag}}"
+                },
+                {
+                    "condition": "{{eq .authresult \"1\"}}",
+                    "opers": [
+                        "{{extractJson \"data.response_code\" ._body | set \"response_code\"}}"
+                    ]
+                }
+            ]
+        },
+        {
+            "page": "https://optimus-mtsi.meituan.com/optimus/verifyResult?originUrl={{.captcha_referer}}&response_code={{.response_code}}&request_code={{.request_code}}",
+            "header": {
+                "Referer": "https://verify.meituan.com/v2/web/general_page?action=spiderindefence&requestCode={{.request_code}}&platform=1&succCallbackUrl=https%3A%2F%2Foptimus-mtsi.meituan.com%2Foptimus%2FverifyResult%3ForiginUrl%3D{{.captcha_referer}}&theme=dianping"
+            },
+            "actions": [
+                {
+                    "condition": "{{eq 1 1}}",
+                    "goto": "{{.captcha_tag}}"
+                }
+            ]
+        }
+    ]
+}

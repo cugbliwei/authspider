@@ -1,0 +1,651 @@
+{
+	"enable_browser":true,
+    "steps" : [
+		{
+			"tag": "login",
+			"need_param": "username,password",
+			"browser_steps":[
+				{
+					"get":"https://passport.aliexpress.com/mini_login.htm?lang=en_us&appName=aebuyer&appEntrance=default&styleType=auto&bizParams=&notLoadSsoView=false&notKeepLogin=false&isMobile=false&rnd=0.296449225371731",
+					"sleep":2000
+				},
+				{
+					"resize_window":"250,400",
+					"sleep":100
+				},
+				{
+					"send_keys":{
+						"#fm-login-id":"{{.username}}"
+					},
+					"sleep":500
+				},
+				{
+					"send_keys":{
+						"#fm-login-password":"{{.password}}"
+					}
+				}
+			]
+		},
+		{
+			"tag":"check_slide",
+			"context_opers":[
+				"{{add \"check_slide_times\" 1}}"
+			],
+			"browser_steps":[
+				{
+					"condition":{
+						"exist_element":"#nc_1__scale_text"
+					},
+					"select_output": {
+						"slideText": "#nc_1__scale_text"
+					},
+					"sleep":2500
+				},
+				{
+					"condition":{
+						"exist_element":"#nocaptcha"
+					},
+					"select_output":{
+						"fatalError": "#nocaptcha"
+					}
+				}
+			],
+			"opers":[
+				"{{if empty \"slideText\"}}{{set \"slideText\" .fatalError}}{{end}}"
+			]
+		},
+		{
+			"tag": "if_need_slide",
+			"condition":"{{notEmpty \"slideText\"}}",
+			"actions":[
+				{
+					"condition":"{{contains \"something's wrong\" .fatalError}}",
+					"message":{
+						"status":"fail",
+						"data":"辅助滑动失败：{{.fatalError}}"
+					}
+				},
+				{
+					"condition":"{{gt .check_slide_times 12}}",
+					"message":{
+						"status":"fail",
+						"data":"辅助滑动异常：{{.fatalError}}"
+					}
+				},
+				{
+					"condition":"{{contains \"Please slide\" .slideText}}",
+					"goto":"check_slide",
+					"delete_context":["slideText"]
+				},
+				{
+					"condition":"{{contains \"Loading\" .slideText}}",
+					"goto":"check_slide",
+					"delete_context":["slideText"]
+				},
+				{
+					"condition":"{{contains \"Verified\" .slideText}}",
+					"goto":"submit_form"
+				},
+				{
+					"condition":"{{eq 1 1}}",
+					"opers":[
+						"{{joinString \"unexpected slide label: \" .slideText | set \"tmp\"}}"
+					]
+				}
+			]
+		},
+		{
+			"tag": "submit_form",
+			"browser_steps":[
+				{
+					"click": "#fm-login-submit",
+					"sleep": 2000
+				},
+				{
+					"condition":{
+						"exist_element": "#login-error"
+					},
+					"select_output": {
+						"msg_error": "#login-error"
+					},
+					"sleep": 2000
+				}
+			],
+			"context_opers":[
+				"{{set \"t\" .msg_error}}"
+			]
+		},
+		{
+			"condition":"{{notEmpty \"msg_error\"}}",
+			"actions":[
+				{
+					"condition":"{{contains \"is incorrect\" .msg_error}}",
+					"message":{
+						"status":"fail",
+						"data":"{{.msg_error}}"
+					}
+				},
+				{
+					"condition":"{{contains \"Please slide\" .msg_error}}",
+					"delete_context":["msg_error"],
+					"goto":"check_slide"
+				},
+				{
+					"condition":"{{eq 1 1}}",
+					"opers":[
+						"{{joinString \"unexpected msg_error: \" .msg_error | set \"temp\"}}"
+					]
+				}
+			]
+		},
+		{
+			"tag":"check_mobile_verification",
+			"condition":"{{empty \"msg_error\"}}",
+			"browser_steps":[
+				{
+					"condition":{
+						"exist_element":"#J_MobileVal"
+					},
+					"select_output":{
+						"mobileNo":".ui-form-text"
+					}
+				},
+				{
+					"condition":{
+						"exist_element":"#J_MobileVal"
+					},
+					"click":"#J_GetCode"
+				}
+			],
+			"actions":[
+				{
+					"condition":"{{notEmpty \"mobileNo\"}}",
+					"context_opers":[
+						"{{set \"mobile_data\" .mobileNo}}"
+					],
+					"goto":"need_mobile_code"
+				}
+			]
+		},
+		{
+			"tag":"need_mobile_code",
+			"condition":"{{notEmpty \"mobileNo\"}}",
+			"message":{
+				"status":"need_param",
+				"need_param":"password2",
+				"data":"{{.mobile_data}}"
+			}
+		},
+		{
+			"tag":"send_back_mobile_code",
+			"condition":"{{notEmpty \"mobileNo\"}}",
+			"need_param":"password2",
+			"browser_steps":[
+				{
+					"send_keys":{
+						"#J_Checkcode":"{{.password2}}"
+					}
+				},
+				{
+					"click":"div.submit button",
+					"sleep":2000
+				},
+				{
+					"condition":{
+						"exist_element":".ui-tiptext-error"
+					},
+					"select_output":{
+						"mobileNo_error_tip":".ui-tiptext-error"
+					}
+				}
+			]
+		},
+		{
+			"tag":"check_mobile_code_good",
+			"condition":"{{and (notEmpty \"mobileNo\") (notEmpty \"mobileNo_error_tip\")}}",
+			"actions":[
+				{
+					"condition":"{{true}}",
+					"context_opers":[
+						"{{set \"mobile_data\" .mobileNo_error_tip}}"
+					],
+					"delete_context":["password2"],
+					"goto":"need_mobile_code"
+				}
+			]
+		},
+		{
+			"condition":"{{empty \"msg_error\"}}",
+			"browser_steps":[
+				{
+					"get":"https://login.aliexpress.com/buyer.htm?spm=2114.11010108.1000002.7.m0Weqr&return=https%3A%2F%2Fwww.aliexpress.com%2F",
+					"sleep":2000
+				},
+				{
+					"switch_frame":1,
+					"sleep":800
+				},
+				{
+					"condition":{
+						"exist_element":"#has-login-user"
+					},
+					"click":"#has-login-submit",
+					"sleep":4000
+				}
+			],
+			"actions":[
+				{
+					"condition":"{{true}}",
+					"goto":"start_crawl"
+				}
+			]
+		},
+		{
+			"tag":"check_login_success",
+            "context_opers":[
+                "{{add \"check_times\" 1}}"
+            ],
+			"browser_steps":[
+				{
+					"resize_window":"1200,400"
+				},
+				{
+					"select_output": {
+						"accountName": ".account-name"
+					},
+					"sleep":600
+				}
+			],
+			"actions":[
+                {
+                    "condition":"{{gt .check_times 10}}",
+                    "goto":"failed"
+                },
+				{
+					"condition":"{{empty \"accountName\"}}",
+					"goto":"check_login_success"
+				},
+				{
+					"condition":"{{eq 1 1}}",
+					"goto":"start_crawl"
+				}
+			],
+            "sleep":1
+		},
+        {
+            "tag":"failed",
+            "message":{
+                "status":"fail",
+                "data":"意外未得到用户名"
+            }
+        },
+        {
+            "tag":"start_crawl",
+            "browser_cookie_sync": true,
+            "page": "https://myae.aliexpress.com/seller/index.htm",
+            "method": "GET",
+            "output_filename": "index.html",
+            "response_timeout": 20,
+            "visit_times": 3,
+            "doc_type": "html",
+            "context_opers": [
+                "{{extractHtml \".me-menu-title a:contains('进入我的商铺')&attr=href&regex=store/([^\\\"]*)\" ._body | set \"shop_id\"}}",
+				"{{extractHtml \".me-menu-title a:contains('进入我的商铺')&attr=href\" ._body | set \"shop_url\"}}",
+				"{{extractRegex \"window.pageletList.push\\\\(([^}]*)@multi \" ._body | set \"list\"}}",
+				"{{range .list}}{{if contains \"今日服务分\" .}}{{set \"scores\" .}}{{end}}{{end}}",
+				"{{range .list}}{{if contains \"商品信息质量违规\" .}}{{set \"violation\" .}}{{end}}{{end}}",
+				"{{range .list}}{{if contains \"一级考核类目\" .}}{{set \"check_info\" .}}{{end}}{{end}}",
+				"{{range .list}}{{if contains \"一级考核类目\" .}}{{set \"check_info\" .}}{{end}}{{end}}",
+				"{{set \"tips\" \"ownerMemberId below disappear at 2017-12-22\"}}",
+				"{{range .list}}{{if contains \"manageStoreResources\" .}}{{set \"memberId_cont\" .}}{{end}}{{end}}",
+				"{{extractRegex \"今日服务分：</span><[^>]*>([^<]*).*\" .scores | set \"score_value\"}}",
+				"{{extractRegex \"搜索权益：</span><[^>]*>([^<]*).*\" .scores | set \"search_rights\"}}",
+				"{{extractRegex \"当月服务等级：[^>]*>([^<]*).*\" .scores | set \"service_level_cur_month\"}}",
+				"{{extractRegex \"下月预估等级：[^>]*>([^<]*).*\" .scores | set \"service_level_next_month\"}}",
+				"{{extractRegex \"商品信息质量违规.*<b>([^<]*).*\" .violation | set \"goods_info_violation\"}}",
+				"{{extractRegex \"知识产权禁限售违规.*<b>([^<]*).*\" .violation | set \"patent_violation\"}}",
+				"{{extractRegex \"交易违规及其他.*<b>([^<]*).*\" .violation | set \"deal_violation\"}}",
+				"{{extractRegex \"一级考核类目.*<b>([^<]*).*\" .check_info | set \"check_info_level_1\"}}",
+				"{{extractRegex \"二级考核类目.*<b>([^<]*).*\" .check_info | set \"check_info_level_2\"}}",
+				"{{extractRegex \"三级考核类目.*<b>([^<]*).*\" .check_info | set \"check_info_level_3\"}}",
+				"{{extractRegex \"ownerMemberId=([0-9]*)\" .memberId_cont | set \"owner_member_id\"}}",
+				"{{extractRegex \"manageStoreResources\\\\.htm['\\\"]+.?>([^<]*)\" .memberId_cont | set \"shop_name_in_index\"}}",
+				"{{extractRegex \"^\\\\s*(.+?)\\\\s*$\" .shop_name_in_index | set \"shop_name_in_index\"}}"
+            ],
+            "extractor": {
+                "shop_performance":{
+                    "username": "c:{{.shop_id}}",
+                    "今日服务分": "c:{{.score_value}}",
+                    "搜索权益": "c:{{.search_rights}}",
+                    "当月服务等级": "c:{{.service_level_cur_month}}",
+                    "下月预估等级": "c:{{.service_level_next_month}}",
+                    "商品信息质量违规": "c:{{.goods_info_violation}}",
+                    "知识产权禁限售违规": "c:{{.patent_violation}}",
+                    "交易违规及其他": "c:{{.deal_violation}}",
+                    "一级考核类目": "c:{{.check_info_level_1}}",
+                    "二级考核类目": "c:{{.check_info_level_2}}",
+                    "三级考核类目": "c:{{.check_info_level_3}}"
+                }
+            },
+            "actions":[
+                {
+                    "condition":"{{contains \"login-home-new\" ._body}}",
+                    "message":{
+                        "status":"fail",
+                        "data":"登录失败"
+                    }
+                },
+                {
+                    "condition":"{{contains \"速卖通认证\" ._body}}",
+                    "message":{
+                        "status":"fail",
+                        "data":"登录失败：请检查账号类型"
+                    }
+                },
+                {
+                    "condition":"{{empty \"shop_id\"}}",
+                    "message":{
+                        "status":"fail",
+                        "data":"店铺状态异常"
+                    }
+                },
+                {
+                    "condition": "{{true}}",
+                    "opers": [
+                        "{{set \"login_info\" \"{}\"}}",
+                        "{{addKeyValueToJson .login_info \"\" \"username\" .shop_id | set \"login_info\"}}",
+                        "{{addKeyValueToJson .login_info \"\" \"shopname\" .shop_name_in_index | set \"login_info\"}}",
+                        "{{addKeyValueToJson .login_info \"\" \"shopid\" .shop_url | set \"login_info\"}}"
+                    ],
+                    "message": {
+                        "status": "login_success",
+                        "data": "{{.login_info}}"
+                    }
+                }
+            ]
+        },
+        {
+            "condition": "{{notEmpty \"shop_url\"}}",
+            "page": "{{.shop_url}}",
+            "method": "GET",
+            "doc_type": "html",
+            "output_filename": "shop_index.html",
+            "context_opers": [
+                "{{extractRegex \"ownerMemberId:\\\\s*'(\\\\d+)\" ._body | set \"ownerId1\"}}",
+                "{{extractRegex \"member2=(\\\\d+)\" ._body | set \"ownerId2\"}}",
+                "{{if empty \"owner_member_id\"}}{{set \"owner_member_id\" .ownerId1}}{{end}}",
+                "{{if empty \"owner_member_id\"}}{{set \"owner_member_id\" .ownerId2}}{{end}}"
+            ]
+        },
+        {
+            "page": "https://myae.aliexpress.com/seller/ajaxStoreData.htm",
+            "method": "GET",
+            "output_filename": "store_data.json",
+            "response_timeout": 20,
+            "visit_times": 2,
+            "doc_type": "json",
+            "extractor": {
+                "店铺数据最近30天趋势概览": "*"
+            }
+        },
+        {
+            "page": "https://feedback.aliexpress.com/display/detail.htm?ownerMemberId={{.owner_member_id}}&memberType=seller",
+            "method": "GET",
+            "response_timeout": 20,
+            "visit_times": 2,
+            "output_filename": "shop_detail.htm",
+            "doc_type": "html",
+            "context_opers":[
+                "{{extractHtml \"#feedback-summary tr:contains('Seller:') td a\" ._body | set \"shop_name\"}}"
+            ],
+            "extractor": {
+                "Score": {
+                    "Seller": "#feedback-summary tr:contains('Seller:') td a",
+                    "Positive_Feedback": "#feedback-summary tr:contains('Positive Feedback') td span",
+                    "Feedback_Score": "#feedback-summary tr:contains('Feedback Score') td span @index=0",
+                    "AliExpress_Seller_Since": "#feedback-summary tr:contains('Since') td",
+                    "Item_as_Described": {
+                        "score": "tr:contains('Item as Described') .dsr-text em",
+                        "compare": "tr:contains('Item as Described') .compare-info em"
+                    },
+                    "Communication": {
+                        "score": "tr:contains('Communication') .dsr-text em",
+                        "compare": "tr:contains('Communication') .compare-info em"
+                    },
+                    "Shipping_Speed": {
+                        "score": "tr:contains('Shipping Speed') .dsr-text em",
+                        "compare": "tr:contains('Shipping Speed') .compare-info em"
+                    }
+                },
+                "login_id":"c:{{.username}}"
+            }
+        },
+        {
+            "page": "https://myae.aliexpress.com/seller/serviceLevel/serviceLevelCenter.htm",
+            "method": "GET",
+            "response_timeout": 20,
+            "visit_times": 2,
+            "output_filename": "service_level.htm",
+            "doc_type": "html",
+            "extractor": {
+            	"service_level": {
+            		"当月服务等级": {
+            			"当月等级": ".current-grade .grade-text-tip @index=0 span @index=1",
+            			"上月每日服务分均值": ".current-grade .grade-text-tip @index=0&regex=([-+.0-9]*)",
+            			"下月等级预估": ".current-grade .grade-text-tip @index=1 span",
+            			"当月权益": {
+            				"橱窗推荐": ".current-rights-list .recommend .current-right-icon",
+            				"特殊标识": ".current-rights-list .mark .current-right-icon",
+            				"平台活动": ".current-rights-list .activity .current-right-icon",
+            				"营销邮件": ".current-rights-list .email .current-right-icon"
+            			}
+            		},
+            		"每日服务分": {
+            			"今日服务分": ".daily-score-progressbar-warp .ui-progressbar-balloon .progressbar-balloon-strong",
+            			"主营二级行业平均分": ".daily-score-progressbar-warp .ui-progressbar-balloon div @index=1&regex=([-+.0-9]*)",
+            			"满分100": ".score-detail-warp ul li:contains('满分') .total-score",
+            			"成交不卖率": ".score-detail-warp ul li:contains('成交不卖率') .total-score-individual",
+            			"未收到货物纠纷提起率": ".score-detail-warp ul li:contains('未收到货物纠纷提起率') .total-score-individual",
+            			"货不对版纠纷提起率": ".score-detail-warp ul li:contains('货不对版纠纷提起率') .total-score-individual",
+            			"DSR商品描述": ".score-detail-warp ul li:contains('DSR商品描述') .total-score-individual",
+            			"DSR卖家服务": ".score-detail-warp ul li:contains('DSR卖家服务') .total-score-individual",
+            			"DSR物流": ".score-detail-warp ul li:contains('DSR物流') .total-score-individual"
+            		}
+            	}
+            }
+        },
+        {
+            "page": "https://myae.aliexpress.com/seller/account/accountPortal.htm",
+            "method": "GET",
+            "response_timeout": 20,
+            "visit_times": 2,
+            "output_filename": "account.htm",
+            "doc_type": "html",
+            "extractor_new": true,
+            "extractor": {
+                "account": {
+                    "账号": "table#verif-detail.account-info tr td @index=0",
+                    "实名认证": "table#verif-detail.account-info tr:contains('实名认证') td @index=0",
+                    "认证姓名": "div#verif-detail-info tr:contains('姓名') td",
+                    "证件类型": "div#verif-detail-info tr:contains('类型') td",
+                    "证件号码": "div#verif-detail-info tr:contains('号码') td",
+                    "绑定人民币扣款支付宝账户": ".me-ui-box @index=3 #verif-detail tr @index=0 td&regex=([^\u4e00-\u9fa5\t\n\\s]*)",
+                    "绑定美元扣款支付宝国际账户": ".me-ui-box @index=3 #verif-detail tr @index=1 td"
+                }
+            }
+        },
+        {
+            "page": "https://accounts.aliexpress.com/user/organization/manage_person_profile.htm",
+            "method": "GET",
+            "response_timeout": 20,
+            "visit_times": 2,
+            "output_filename": "account_profile.htm",
+            "doc_type": "html",
+            "extractor_new": true,
+            "extractor": {
+              "account": {
+            		"_root": "tbody",
+            		"用户姓名": "tr:contains('用户姓名') td",
+            		"性别": "tr:contains('性别') td",
+            		"邮箱": "tr:contains('邮箱') td span @index=0",
+            		"备用邮箱": "tr:contains('备用邮箱') td",
+            		"联系地址": "tr:contains('联系地址') td",
+            		"邮编": "tr:contains('邮编') td",
+            		"电话": "tr:contains('电话') td",
+            		"传真": "tr:contains('传真') td",
+            		"联系手机": "tr:contains('联系手机') td",
+            		"部门": "tr:contains('部门') td",
+            		"职位": "tr:contains('职位') td"
+            	  }
+            }
+        },
+        {
+            "context_opers":[
+                "{{set \"mark\" 0}}"
+            ]
+        },
+        {
+            "tag":"overview_trend",
+            "page": "https://datamatrix.aliexpress.com/common/.dox?action=CommonAction2&iName=tradeFluctuationAnalyze&opType=overviewTrend",
+            "output_filename": "overviewTrend-{{.mark}}.json",
+            "method": "POST",
+            "response_timeout": 20,
+            "visit_times": 2,
+            "disable_upload": true,
+            "doc_type": "json",
+            "params":{
+                "dateLevel":"mm",
+                "begStatDate":"{{firstDayOfMonthAgo .mark \"2006-01-02\"}}",
+                "endStatDate":"{{lastDayOfMonthAgo .mark \"2006-01-02\" false}}",
+                "platform":"-9999"
+            },
+            "actions": [
+                {
+                    "condition": "{{lt .mark 12}}",
+                    "opers":[
+                        "{{add \"mark\" 1}}"
+                    ],
+                    "goto":"overview_trend"
+                }
+            ],
+            "extractor": {
+                "OverviewTrend_List":{
+                    "{{firstDayOfMonthAgo .mark \"2006-01-02\"}}": "c:{{._body}}"
+                }
+            }
+        },
+		{
+			"tag": "pre_trade_list",
+			"page": "https://trade.aliexpress.com/orderList.htm",
+			"method": "GET",
+			"doc_type": "html",
+			"output_filename": "orderList_first.html",
+			"context_opers": [
+				"{{extractHtml \"form[name=orderListSearch] input[name=_csrf_token]&attr=value\" ._body | set \"_csrf_token_val\"}}",
+				"{{addDate 0 -1 -1 \"01/02/2006\" | set \"tl_start_date\"}}",
+				"{{addDate 0 0 -1 \"01/02/2006\" | set \"tl_end_date\"}}",
+				"{{set \"page_idx\" 1}}"
+			]
+		},
+		{
+			"tag": "trade_list",
+			"method": "POST",
+			"page": "https://trade.aliexpress.com/orderList.htm",
+			"visit_times": 2,
+            "goto_times": 250,
+			"params": {
+				"_csrf_token": "{{._csrf_token_val}}",
+				"action": "OrderListAction",
+				"_fm.o._0.s": "{{.tl_start_date}}",
+				"_fm.o._0.e": "{{.tl_end_date}}",
+				"_fm.o._0.co": "",
+				"_fm.o._0.l": "",
+				"_fm.o._0.or": "FINISH",
+				"_fm.o._0.p": "",
+				"_fm.o._0.o": "",
+				"_fm.o._0.c": "",
+				"pageNum": "{{.page_idx}}",
+				"_fm.o._0.cu": "{{.page_idx}}",
+				"sortKey": "",
+				"eventSubmitDoPage": "doPage"
+			},
+			"output_filename": "orderList_{{.page_idx}}.html",
+			"context_opers": [
+				"{{extractHtml \"form[name=orderListSearch] input[name=_csrf_token]&attr=value\" ._body | set \"_csrf_token_val\"}}",
+				"{{add \"page_idx\" 1}}",
+				"{{extractHtml \"#simple-pager .ui-label\" ._body | set \"total_page_raw\"}}",
+				"{{extractRegex \"/(\\\\d+)\" .total_page_raw | stringToInt | set \"td_total_page\"}}"
+			],
+			"sleep": 1,
+			"extractor": {
+				"trade_list": {
+					"_root": "#seller-ordertable tbody:contains('已完成')",
+					"_array": true,
+					"product_id": "p.product-title a&attr=productid",
+					"product_status": "td.product-action",
+					"title": "p.product-title a",
+					"quantity": "td.quantity",
+					"price": "td.price",
+					"amount": "tr.order-head span.amount strong",
+					"status": "tr.order-body td.order-status span.f-left@index=0",
+					"order_time": "tr.order-head td@index=0 p.second-row&regex=(\\d{4}-\\d{2}.+)"
+				},
+				"trade_list_valid_product_status": "c:纠纷结束,收货超时,买家确认收货"
+			},
+			"actions": [
+				{
+					"condition": "{{gt .page_idx 80}}",
+					"goto": "alipay_account"
+				},
+				{
+					"condition": "{{and (notEmpty \"td_total_page\") (lt .page_idx .td_total_page)}}",
+					"goto": "trade_list"
+				}
+			]
+		},
+        {
+            "tag": "alipay_account",
+            "page": "http://login.aliexpress.com/alipay_wallet.htm?tsp={{nowMillTimestamp}}",
+            "method": "GET",
+            "response_timeout": 18,
+            "visit_times": 2,
+            "output_filename": "alipay_home.html"
+        },
+        {
+            "tag": "post_to_alipay",
+            "page": "https://intl.alipay.com/ilogin/trust_login.htm",
+            "method": "POST",
+            "response_timeout": 18,
+            "visit_times": 2,
+            "output_filename": "alipay_mid_post.html",
+            "doc_type": "html",
+            "extractor": {
+                "O_ALIPAY_USD_ACCOUNT": {
+                    "_root": "#j-account li:contains('USD')",
+                    "total_amt": "p.total span.money",
+                    "available_amt": "p.available span.money",
+                    "pending_amt": "p.frozen span.money"
+                },
+                "O_ALIPAY_CNY_ACCOUNT": {
+                    "_root": "#j-account li:contains('CNY')",
+                    "total_amt": "p.total span.money",
+                    "available_amt": "p.available span.money",
+                    "pending_amt": "p.frozen span.money"
+                },
+                "O_ALIPAY_RECENT_ACCOUNT_ACTIVITY": {
+                    "_root": "div.records table tbody tr",
+                    "date_occurred": "td@index=0",
+                    "business_type": "td@index=1",
+                    "money_in": "td@index=2",
+                    "money_out": "td@index=3"
+                }
+            }
+        },
+        {
+            "message": {
+                "status": "finish_fetch_data",
+                "data": "{\"username\": \"{{.username}}\", \"shop_name\":\"{{.shop_name}}\"}"
+            }
+        }
+    ]
+}

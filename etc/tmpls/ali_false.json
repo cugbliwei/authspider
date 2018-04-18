@@ -1,0 +1,356 @@
+{
+    "disable_outpubkey": true,
+    "steps": [
+        {
+            "tag":"first_step",
+            "need_param": "headers,body",
+            "context_opers": [
+                "{{notEmpty \"taobao_false\" | whichOne \"tbloan\" \"tmloan\" | set \"which_loan\"}}",
+                "{{notEmpty \"taobao_false\" | whichOne \"taobao\" \"tmall\" | set \"shop_type\"}}"
+            ]
+        },
+        {
+            "page": "https://login.taobao.com/member/login.jhtml?redirectURL=https%3A%2F%2Fwww.taobao.com%2F",
+            "page_local": "http://localhost:8012/show",
+            "method": "POST_CUSTOM",
+            "response_timeout": 10,
+            "visit_times": 1,
+            "doc_type": "html",
+            "header_unknown":"{{.headers}}",
+            "params_unknown":"{{.body}}",
+            "output_filename": "login_post.htm",
+            "context_opers": [
+                "{{set \"body_cnt\" ._body}}",
+                "{{extractHtml \"p.error\" ._body | set \"errmsg\"}}",
+                "{{containAny \"不匹配\" \"已被限制登录\" \"已被冻结\" \"暂时无法\" \"请填写账户名\" .errmsg | set \"login_failed\"}}",
+                "{{containAny \"请拖动滑块\" \"请重新拖动\" ._body | set \"need_slide\"}}",
+                "{{contains \"self.location\" ._body | set \"has_rediret\"}}",
+                "{{extractRegex \"self.location.href = \\\"(.*)\\\";\" ._body | set \"redirect_url_1\"}}",
+                "{{extractRegex \"top.location.href = \\\"(.*)\\\";\" ._body | set \"redirect_url_2\"}}",
+                "{{contains \"redirectURL:'https://www.taobao.com/'\" ._body | set \"login_success\"}}",
+                "{{contains \"Internal Server Error\" ._body | set \"error_response\"}}"
+            ],
+            "actions": [
+                {
+                    "condition": "{{eq .login_failed true}}",
+                    "message":{
+                        "status": "raw_response",
+                        "data": "{{._body}}"
+                    },
+                    "delete_context":["headers","body"],
+                    "goto":"first_step"
+                },
+				{
+					"condition":"{{notEmpty \"redirect_url_1\"}}",
+					"goto":"prepare_redirect_1"
+				},
+				{
+					"condition":"{{eq .login_success true}}",
+					"goto":"prepare_login_success"
+				},
+				{
+					"condition":"{{and (notEmpty \"redirect_url_2\") (not (contains \"remote\" .redirect_url_2))}}",
+					"goto":"tmall_refresh"
+				},
+				{
+					"condition":"{{notEmpty \"redirect_url_2\"}}",
+					"opers":[
+						"{{set \"fail_reason\" \"账户被登录保护，请在电脑上登录一次淘宝网后重试\"}}"
+					],
+					"goto":"prepare_fail_response"
+				},
+				{
+					"condition": "{{eq .need_slide true}}",
+					"message":{
+						"status":"raw_response",
+						"data":"{{._body}}"
+					},
+					"delete_context":["headers","body"],
+					"goto":"first_step"
+				},
+				{
+					"condition":"{{eq .error_response true}}",
+					"opers":[
+						"{{set \"fail_reason\" \"非法的请求，请重新操作\"}}"
+					],
+					"goto":"prepare_fail_response"
+				},
+				{
+					"condition": "{{eq 1 1}}",
+					"opers":[
+						"{{set \"fail_reason\" \"服务器异常：unexpected first step\"}}"
+					],
+					"goto":"prepare_fail_response"
+				}
+            ]
+        },
+		{
+			"tag":"tmall_refresh",
+			"page":"{{.redirect_url_2}}",
+			"context_opers":[
+			],
+			"actions":[
+				{
+					"condition":"{{contains \"上天猫，就够了\" ._body}}",
+					"goto":"prepare_login_success"
+				}
+			]
+		},
+		{
+			"tag":"prepare_redirect_1",
+			"message":{
+				"status":"in_crawling",
+				"data":"please submit again later"
+			}
+		},
+		{
+			"tag":"redirect_1",
+			"page":"{{.redirect_url_1}}",
+			"method":"GET",
+			"doc_type":"html",
+			"output_filename":"redirect_url_1.html",
+			"context_opers":[
+				"{{extractHtml \"iframe@attr=src\" ._body | set \"static_check_url\"}}",
+				"{{extractRegex \"<iframe src=\\\"([^\\\"]*)\\\"\" ._body | set \"static_check_url_bak\"}}",
+				"{{if empty \"static_check_url\"}}{{set \"static_check_url\" .static_check_url_bak}}{{end}}"
+			],
+			"actions":[
+				{
+					"condition":"{{notEmpty \"static_check_url\"}}",
+					"goto":"static_check"
+				},
+				{
+					"condition":"{{eq 1 1}}",
+					"opers":[
+						"{{set \"fail_reason\" \"系统错误：unexpected step unexpected redirect_1\"}}"
+					],
+					"goto":"prepare_fail_response"
+				}
+			]
+		},
+		{
+			"tag":"static_check",
+			"page":"{{.static_check_url}}",
+			"method":"GET",
+			"response_timeout":10,
+			"visit_times":3,
+			"doc_type":"html",
+			"output_filename":"static_check.html",
+			"context_opers":[
+				"{{extractRegex \"window.location.href = \\\"(.*)\\\";\" ._body | set \"redirect_url\"}}"
+			],
+			"actions":[
+				{
+					"condition":"{{notEmpty \"redirect_url\"}}",
+					"goto":"visit_real_mobile_page"
+				},
+				{
+					"condition":"{{eq 1 1}}",
+					"opers":[
+						"{{set \"fail_reason\" \"系统错误：unexpected step visit_real_mobile_page\"}}"
+					],
+					"goto":"prepare_fail_response"
+				}
+			]
+		},
+		{
+			"tag":"visit_real_mobile_page",
+			"page":"{{.redirect_url}}",
+			"method":"GET",
+			"doc_type":"html",
+			"output_filename":"send_mobile_page.html",
+			"context_opers":[
+				"{{extractHtml \".ui-form-text\" ._body | set \"phone_number\"}}",
+				"{{set \"temp_tips\" \"below may encounter more than 1 phone numbers\"}}",
+				"{{extractHtml \"#J_Mobile option\" ._body | set \"phone_options\" | len | set \"options_len\"}}",
+				"{{if gt .options_len 0}}{{randIntn .options_len | set \"tmp_phone_idx\" | index .phone_options | set \"bak_phone_number\"}}{{end}}",
+				"{{if empty \"phone_number\"}}{{set \"phone_number\" .bak_phone_number}}{{end}}",
+				"{{extractRegex \"url: '([^']*send_code[^']*)'\" ._body | set \"send_mobile_code_url\"}}",
+				"{{extractRegex \"htoken=(.*)\" .send_mobile_code_url | set \"htoken\"}}",
+				"{{extractRegex \"_tb_token_.*value='([^']*)'>\" ._body | set \"tb_token\"}}",
+				"{{set \"temp_tips\" \"below may encounter another verify ways\"}}",
+				"{{extractHtml \"a:contains('其他验证')&attr=href\" ._body | set \"other_verify_url\"}}",
+				"{{set \"temp_tips\" \"may meet js redirect\"}}",
+				"{{extractRegex \"([^\\\"]+mini_apply_st.js[^\\\"]+)\" ._body | set \"js_file\"}}"
+			],
+			"actions":[
+				{
+					"condition":"{{notEmpty \"phone_number\"}}",
+					"goto":"send_mobile_code"
+				},
+				{
+					"condition":"{{notEmpty \"other_verify_url\"}}",
+					"goto":"other_verify_ways"
+				},
+				{
+					"condition":"{{notEmpty \"js_file\"}}",
+					"goto":"might_success"
+				},
+				{
+					"condition":"{{true}}",
+					"opers":[
+						"{{set \"fail_reason\" \"系统错误：unexpected step visit_real_mobile_page\"}}"
+					],
+					"goto":"prepare_fail_response"
+				}
+			]
+		},
+		{
+			"tag":"might_success",
+			"page":"{{.js_file}}",
+			"method":"GET",
+			"output_filename":"mini_apply_st.js",
+			"actions":[
+				{
+					"condition":"{{true}}",
+					"goto":"prepare_login_success"
+				}
+			]
+		},
+		{
+			"tag":"other_verify_ways",
+			"condition":"{{notEmpty \"other_verify_url\"}}",
+			"page":"{{.other_verify_url}}",
+			"method":"GET",
+			"doc_type":"html",
+			"output_filename":"other_verify_ways.html",
+			"context_opers":[
+				"{{add \"has_select_ways\" 1}}",
+				"{{set \"tips\" \"select sms verify ways, extract send mobile page url\"}}",
+				"{{extractHtml \"li:contains('验证码') a&attr=href\" ._body | set \"send_mobile_page\"}}",
+				"{{if notEmpty \"send_mobile_page\"}}{{set \"redirect_url\" .send_mobile_page}}{{end}}"
+			],
+			"actions":[
+				{
+					"condition":"{{and (notEmpty \"send_mobile_page\") (lt .has_select_ways 3)}}",
+					"goto":"visit_real_mobile_page"
+				},
+				{
+					"condition":"{{true}}",
+					"message":{
+						"status":"fail",
+						"message":"意外的情况，请稍后重试"
+					}
+				}
+			]
+		},
+		{
+			"tag":"send_mobile_code",
+			"condition":"{{notEmpty \"send_mobile_code_url\"}}",
+			"page":"{{.send_mobile_code_url}}&type=phone&area=86&tag=86&phone={{.phone_number}}",
+			"method":"GET",
+			"doc_type":"json",
+			"output_filename":"send_mobile_code_response.html",
+			"context_opers":[
+				"{{extractJson \"content.success\" ._body | set \"is_send_success\"}}"
+			],
+			"actions":[
+				{
+					"condition":"{{empty \"is_send_success\"}}",
+					"opers":[
+						"{{set \"fail_reason\" \"获取手机验证码时返回意外为空\"}}"
+					],
+					"goto":"prepare_fail_response"
+				},
+				{
+					"condition":"{{ne .is_send_success \"true\"}}",
+					"opers":[
+						"{{set \"fail_reason\" \"获取手机验证码时失败\"}}"
+					],
+					"goto":"prepare_fail_response"
+				},
+				{
+					"condition":"{{eq 1 1}}",
+					"message":{
+						"status":"need_param",
+						"need_param":"password2",
+						"data":"{{.phone_number}}"
+					}
+				}
+			]
+		},
+		{
+            "tag": "send_back_password2",
+            "page":"https://passport.taobao.com/iv/mini/identity_verify.htm?tag=8&htoken={{.htoken}}&appName=",
+            "need_param":"password2",
+            "method": "POST",
+            "response_timeout": 10,
+            "params":{
+                "_tb_token_":"{{.tb_token}}",
+                "action":"verify_action",
+                "event_submit_do_validate":"notNull",
+                "_fm.v._0.t":"8",
+                "_fm.v._0.h":"{{.htoken}}",
+                "_fm.v._0.ty":"8",
+                "_fm.v._0.c":"pc",
+                "_fm.v._0.p":"{{.phone_number}}",
+                "_fm.v._0.a":"86",
+                "_fm.v._0.ph":"{{.password2}}"
+            },
+            "visit_times": 1,
+            "doc_type": "html",
+            "output_filename": "send_back_password2.htm",
+            "context_opers": [
+                "{{contains \"校验码失效\" ._body | set \"code_invalid\"}}",
+                "{{contains \"手机验证码错误\" ._body | set \"code_wrong\"}}"
+            ],
+            "actions": [
+                {
+                    "condition": "{{or (eq .code_invalid true) (eq .code_wrong true)}}",
+                    "delete_context": ["password2"],
+                    "message":{
+                        "status": "need_param",
+                        "need_param":"password2",
+                        "data": "{{if .code_invalid}}校验码失效{{end}}{{if .code_wrong}}手机验证码错误{{end}}"
+                    },
+                    "goto":"send_back_password2"
+                },
+                {
+					"condition":"{{eq 1 2}}",
+					"opers":[
+						"{{set \"fail_reason\" \"other error condition send_back_password2\"}}"
+					],
+					"goto":"prepare_fail_response"
+                },
+                {
+					"condition":"{{eq 1 1}}",
+					"goto":"prepare_login_success"
+                }
+            ]
+        },
+		{
+			"tag":"prepare_fail_response",
+			"message":{
+				"status":"in_crawling",
+				"data":"please submit again later"
+			}
+		},
+		{
+			"message":{
+				"status":"fail",
+				"data":"{{.fail_reason}}"
+			}
+		},
+		{
+			"tag":"prepare_login_success",
+			"message":{
+				"status":"in_crawling",
+				"data":"please submit again later"
+			}
+		},
+		{
+			"actions":[
+				{
+					"condition":"{{true}}",
+					"goto":"loginSuccess"
+				}
+			]
+		},
+        {
+            "require": {
+                "file": "ali.json",
+                "from": "https://i.taobao.com/my_taobao.htm"
+            }
+        }
+    ]
+}

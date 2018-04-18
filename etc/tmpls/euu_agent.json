@@ -1,0 +1,596 @@
+{
+    "disable_outpubkey": true,
+    "steps": [
+        {
+            "need_param": "username,password,startIndex,endIndex",
+            "page": "http://e.uu.com.cn/",
+            "method": "GET",
+            "response_timeout": 20,
+            "visit_times": 10,
+            "doc_type": "html",
+            "context_opers": [
+                "{{extractRegex \"\\\"csrftoken\\\":\\\"([a-zA-Z0-9]*)\\\"\" ._body | set \"csrftoken\"}}"
+            ]
+        },
+        {
+            "page": "http://cia.chanapp.chanjet.com/internal_api/authorizeByJsonp?client_id=finance&callback=jQuery1110046312334099890673_1478605543949&_={{nowMillTimestamp}}",
+            "method": "GET",
+            "header": {
+                "Referer": "http://e.uu.com.cn/"
+            },
+            "response_timeout": 20,
+            "visit_times": 10,
+            "doc_type": "html",
+            "context_opers": [
+                "{{extractRegex \"\\\"auth_code\\\":\\\"([a-zA-Z0-9]*)\\\"\" ._body | set \"auth_code\"}}"
+            ]
+        },
+        {
+            "page": "http://e.uu.com.cn/auth/login",
+            "method": "POST",
+            "params": {
+                "authCode": "{{.auth_code}}",
+                "csrftoken": "{{.csrftoken}}",
+                "loginName": "{{.username}}",
+                "password": "{{md5 .password}}",
+                "rememberMe": "1"
+            },
+            "header": {
+                "Referer": "http://e.uu.com.cn/"
+            },
+            "response_timeout": 30,
+            "visit_times": 10,
+            "disable_upload": true,
+            "output_filename": "login.json",
+            "doc_type": "json",
+            "context_opers": [
+                "{{extractJson \"data.user.csp_org_account\" ._body | set \"csp_org_account\"}}",
+                "{{extractJson \"data.ciaToken\" ._body | set \"ciaToken\"}}",
+                "{{extractJson \"success\" ._body | set \"status\"}}"
+            ],
+            "actions": [
+                {
+                    "condition": "{{eq .status \"false\"}}",
+                    "message":{
+                        "status": "fail",
+                        "data": "用户名或密码错误"
+                    }
+                }
+            ]
+        },
+        {
+            "page": "http://e.uu.com.cn/home/index",
+            "method": "GET",
+            "header": {
+                "Referer": "http://e.uu.com.cn/"
+            },
+            "response_timeout": 20,
+            "visit_times": 2,
+            "disable_upload": true,
+            "output_filename": "index.html",
+            "doc_type": "html",
+            "context_opers": [
+                "{{extractHtml \"title\" ._body | set \"index_title\"}}"
+            ],
+            "actions": [
+                {
+                    "condition": "{{contains \"代账运营管理系统\" .index_title}}",
+                    "message":{
+                        "status": "fail",
+                        "data": "请输入代账公司账号，企业主账号无效"
+                    }
+                }
+            ]
+        },
+        {
+            "page": "http://{{.csp_org_account}}.chanapp.com/chanjet/finance/index.html?{{nowMillTimestamp}}",
+            "method": "GET",
+            "header": {
+                "Referer": "http://e.uu.com.cn/wait/index"
+            },
+            "response_timeout": 20,
+            "visit_times": 10,
+            "context_opers": [
+                "{{extractRegex \"state=([a-zA-Z0-9]*)\" ._body | set \"state\"}}"
+            ]
+        },
+        {
+            "page": "http://cia.chanapp.chanjet.com/internal_api/authorizeByJsonp?client_id=finance&time={{nowMillTimestamp}}&callback=jQuery111006074862914526508_{{nowMillTimestamp}}&_={{nowMillTimestamp}}",
+            "method": "GET",
+            "header": {
+                "Referer": "http://e.uu.com.cn/home/index"
+            },
+            "response_timeout": 20,
+            "visit_times": 10,
+            "context_opers": [
+                "{{extractRegex \"\\\"code\\\":\\\"([a-zA-Z0-9]*)\\\"\" ._body | set \"code\"}}"
+            ]
+        },
+        {
+            "tag": "get_first_page",
+            "page": "http://e.uu.com.cn/api/v1/account/page?start=0&limit=100&conds=%7B%22is_owner%22%3A0%7D&page=0&isRecycle=0",
+            "method": "GET",
+            "header": {
+                "Referer": "http://e.uu.com.cn/home/index"
+            },
+            "response_timeout": 20,
+            "visit_times": 10,
+            "disable_upload": true,
+            "output_filename": "index0.json",
+            "doc_type": "json",
+            "context_opers": [
+                "{{extractJson \"success\" ._body | set \"status\"}}",
+                "{{extractJson \"data.count\" ._body | stringToInt | set \"count\"}}",
+                "{{extractJson \"data.list\" ._body | set \"list\"}}"
+            ],
+            "actions": [
+                {
+                    "condition": "{{eq .status \"false\"}}",
+                    "goto": "get_first_page"
+                },
+                {
+                    "condition": "{{lt 100 .count}}",
+                    "opers": [
+                        "{{add \"start\" 100}}",
+                        "{{add \"page\" 1}}",
+                        "{{add \"count\" -100}}"
+                    ],
+                    "goto": "other_company"
+                },
+                {
+                    "condition": "{{eq 1 1}}",
+                    "goto": "account_result"
+                }
+            ]
+        },
+        {
+            "tag": "other_company",
+            "page": "http://e.uu.com.cn/api/v1/account/page?start={{.start}}&limit=100&conds=%7B%22is_owner%22%3A0%7D&page={{.page}}&isRecycle=0",
+            "method": "GET",
+            "header": {
+                "Referer": "http://e.uu.com.cn/home/index"
+            },
+            "response_timeout": 20,
+            "visit_times": 10,
+            "disable_upload": true,
+            "output_filename": "index{{.page}}.json",
+            "doc_type": "json",
+            "context_opers": [
+                "{{extractJson \"success\" ._body | set \"status\"}}",
+                "{{extractJson \"data.list\" ._body | set \"list\"}}"
+            ],
+            "actions": [
+                {
+                    "condition": "{{eq .status \"false\"}}",
+                    "goto": "other_company"
+                },
+                {
+                    "condition": "{{lt .start .count}}",
+                    "opers": [
+                        "{{add \"start\" 100}}",
+                        "{{add \"page\" 1}}"
+                    ],
+                    "goto": "other_company"
+                }
+            ]
+        },
+        {
+            "tag": "account_result",
+            "context_opers": [
+                "{{stringToInt .startIndex | set \"start_index\"}}",
+                "{{stringToInt .endIndex | set \"end_index\"}}",
+                "{{add \"account_result_index\" .start_index}}",
+                "{{len .list | set \"len_list\"}}"
+            ]
+        },
+        {
+            "tag": "crawl_account_result",
+            "context_opers": [
+                "{{add \"account_result_index\" 1}}"
+            ],
+            "actions": [
+                {
+                    "condition": "{{eq .account_result_index .len_list}}",
+                    "goto": "final"
+                }
+            ]
+        },
+        {
+            "context_opers": [
+                "{{getValueFromArrayMap .account_result_index \"user_id\" .list | set \"user_id\"}}",
+                "{{getValueFromArrayMap .account_result_index \"book_id\" .list | set \"book_id\"}}",
+                "{{getValueFromArrayMap .account_result_index \"name\" .list | set \"name\"}}"
+            ]
+        },
+        {
+            "condition": "{{notEmpty \"user_id\"}}",
+            "tag": "get_index_url",
+            "page": "http://e.uu.com.cn/api/v1/app/state?t={{nowMillTimestamp}}&user_id={{.user_id}}",
+            "method": "GET",
+            "header": {
+                "Referer": "http://e.uu.com.cn/home/index"
+            },
+            "response_timeout": 20,
+            "visit_times": 10,
+            "disable_upload": true,
+            "output_filename": "get_state.json",
+            "doc_type": "json",
+            "context_opers": [
+                "{{extractJson \"success\" ._body | set \"status\"}}",
+                "{{extractJson \"data.url\" ._body | set \"index_url\"}}",
+                "{{extractRegex \"/([a-zA-Z0-9]*)\\\\.chanapp\\\\.com\" ._body | set \"url_prefix\"}}"
+            ],
+            "actions": [
+                {
+                    "condition": "{{eq .status \"false\"}}",
+                    "goto": "get_index_url"
+                }
+            ]
+        },
+        {
+            "condition": "{{notEmpty \"book_id\"}}",
+            "tag": "post_url",
+            "page": "http://e.uu.com.cn/api/v1/app/beforeEnter",
+            "method": "POST",
+            "params":{
+                "book_id": "{{.book_id}}",
+                "csrftoken": "{{.csrftoken}}",
+                "user_id": "{{.user_id}}"
+            },
+            "header": {
+                "Referer": "http://e.uu.com.cn/home/index"
+            },
+            "response_timeout": 20,
+            "visit_times": 10,
+            "disable_upload": true,
+            "output_filename": "post.json",
+            "doc_type": "json",
+            "context_opers": [
+                "{{extractJson \"success\" ._body | set \"status\"}}"
+            ],
+            "actions": [
+                {
+                    "condition": "{{eq .status \"false\"}}",
+                    "goto": "post_url"
+                }
+            ]
+        },
+        {
+            "condition": "{{notEmpty \"index_url\"}}",
+            "page": "{{.index_url}}",
+            "method": "GET",
+            "header": {
+                "Referer": "http://e.uu.com.cn/home/index"
+            },
+            "disable_upload": true,
+            "output_filename": "index.html",
+            "response_timeout": 20,
+            "visit_times": 10
+        },
+        {
+            "condition": "{{notEmpty \"index_url\"}}",
+            "page": "https://cia.chanapp.chanjet.com/internal_api/authorizeByJsonp?client_id=finance&state={{.state}}&callback=dojo_request_script_callbacks.dojo_request_script0",
+            "method": "GET",
+            "header": {
+                "Referer": "{{.index_url}}"
+            },
+            "response_timeout": 20,
+            "visit_times": 10,
+            "context_opers": [
+                "{{extractRegex \"\\\"code\\\":\\\"([a-zA-Z0-9]*)\\\"\" ._body | set \"code\"}}"
+            ]
+        },
+        {
+            "condition": "{{notEmpty \"index_url\"}}",
+            "page": "http://{{.url_prefix}}.chanapp.com/chanjet/finance/services/1.0/user/session?code={{.code}}",
+            "method": "GET",
+            "header": {
+                "Referer": "{{.index_url}}"
+            },
+            "response_timeout": 20,
+            "visit_times": 10
+        },
+        {
+            "page": "http://{{.url_prefix}}.chanapp.com/chanjet/finance/restlet/v2/web/accountbook/GetAccountBookById?bookID={{.book_id}}&_dc={{nowMillTimestamp}}",
+            "method": "GET",
+            "header": {
+                "Referer": "{{.index_url}}"
+            },
+            "response_timeout": 20,
+            "visit_times": 10,
+            "disable_upload": true,
+            "output_filename": "get_month.json",
+            "doc_type": "json",
+            "context_opers": [
+                "{{extractJson \"resultObj.currentPeriod\" ._body | set \"currentPeriod\"}}",
+                "{{extractJson \"resultObj.startPeriod\" ._body | set \"startPeriod\"}}"
+            ]
+        },
+        {
+            "condition": "{{notEmpty \"index_url\"}}",
+            "context_opers": [
+                "{{set \"account_dateloop\" 1}}",
+                "{{add \"account_dateloop\" -1}}",
+                "{{getMonthDateFromUnkown .currentPeriod \"200601\" .account_dateloop \"200601\" | set \"next_date\"}}"
+            ]
+        },
+        {
+            "condition": "{{notEmpty \"book_id\"}}",
+            "tag": "get_balancesheet_months",
+            "page": "http://{{.url_prefix}}.chanapp.com/chanjet/finance/restlet/v2/web/balancesheet/Query?ACCOUNTBOOK={{.book_id}}&queryCond=%7B%22period%22%3A%20%22{{.next_date}}%22%2C%20%22orign%22%3A%20null%7D&_dc={{nowMillTimestamp}}",
+            "method": "GET",
+            "header": {
+                "Referer": "{{.index_url}}"
+            },
+            "response_timeout": 20,
+            "visit_times": 10,
+            "disable_upload": true,
+            "output_filename": "balancesheet.json",
+            "doc_type": "json",
+            "extractor_new": true,
+            "extractor": {
+                "{{.name}}_{{.user_id}}{{.book_id}}":{
+                    "balancesheet": {
+                        "{{.next_date}}": "resultObj.items"
+                    }
+                }
+            },
+            "actions": [
+                {
+                    "condition": "{{and (lt -14 .account_dateloop) (timeBefore .startPeriod \"200601\" .next_date \"200601\")}}",
+                    "opers": [
+                        "{{add \"account_dateloop\" -1}}",
+                        "{{getMonthDateFromUnkown .currentPeriod \"200601\" .account_dateloop \"200601\" | set \"next_date\"}}"
+                    ],
+                    "goto": "get_balancesheet_months"
+                }
+            ]
+        },
+        {
+            "condition": "{{notEmpty \"index_url\"}}",
+            "context_opers": [
+                "{{set \"account_dateloop\" 1}}",
+                "{{add \"account_dateloop\" -1}}",
+                "{{getMonthDateFromUnkown .currentPeriod \"200601\" .account_dateloop \"200601\" | set \"next_date\"}}"
+            ]
+        },
+        {
+            "condition": "{{notEmpty \"book_id\"}}",
+            "tag": "get_incomereport_months",
+            "page": "http://{{.url_prefix}}.chanapp.com/chanjet/finance/restlet/v2/web/incomereport/Query?ACCOUNTBOOK={{.book_id}}&queryCond=%7B%22period%22%3A%20%22{{.next_date}}%22%7D&_dc={{nowMillTimestamp}}",
+            "method": "GET",
+            "header": {
+                "Referer": "{{.index_url}}"
+            },
+            "response_timeout": 20,
+            "visit_times": 10,
+            "disable_upload": true,
+            "output_filename": "incomereport.json",
+            "doc_type": "json",
+            "extractor_new": true,
+            "extractor":{
+                "{{.name}}_{{.user_id}}{{.book_id}}":{
+                    "incomereport": {
+                        "{{.next_date}}": "resultObj"
+                    }
+                }
+            },
+            "actions": [
+                {
+                    "condition": "{{and (lt -14 .account_dateloop) (timeBefore .startPeriod \"200601\" .next_date \"200601\")}}",
+                    "opers": [
+                        "{{add \"account_dateloop\" -1}}",
+                        "{{getMonthDateFromUnkown .currentPeriod \"200601\" .account_dateloop \"200601\" | set \"next_date\"}}"
+                    ],
+                    "goto": "get_incomereport_months"
+                }
+            ]
+        },
+        {
+            "condition": "{{notEmpty \"index_url\"}}",
+            "context_opers": [
+                "{{set \"account_dateloop\" 1}}",
+                "{{add \"account_dateloop\" -1}}",
+                "{{getMonthDateFromUnkown .currentPeriod \"200601\" .account_dateloop \"200601\" | set \"next_date\"}}"
+            ]
+        },
+        {
+            "condition": "{{notEmpty \"book_id\"}}",
+            "tag": "get_cashflowreport_months",
+            "page": "http://{{.url_prefix}}.chanapp.com/chanjet/finance/restlet/v2/web/cashflowreport/Query?ACCOUNTBOOK={{.book_id}}&queryCond=%7B%22period%22%3A%20%22{{.next_date}}%22%7D&_dc={{nowMillTimestamp}}",
+            "method": "GET",
+            "header": {
+                "Referer": "{{.index_url}}"
+            },
+            "response_timeout": 20,
+            "visit_times": 10,
+            "disable_upload": true,
+            "output_filename": "cashflowreport.json",
+            "doc_type": "json",
+            "extractor_new": true,
+            "extractor":{
+                "{{.name}}_{{.user_id}}{{.book_id}}":{
+                    "cashflowreport": {
+                        "{{.next_date}}": "resultObj"
+                    }
+                }
+            },
+            "actions": [
+                {
+                    "condition": "{{and (lt -14 .account_dateloop) (timeBefore .startPeriod \"200601\" .next_date \"200601\")}}",
+                    "opers": [
+                        "{{add \"account_dateloop\" -1}}",
+                        "{{getMonthDateFromUnkown .currentPeriod \"200601\" .account_dateloop \"200601\" | set \"next_date\"}}"
+                    ],
+                    "goto": "get_cashflowreport_months"
+                }
+            ]
+        },
+        {
+            "condition": "{{notEmpty \"index_url\"}}",
+            "context_opers": [
+                "{{set \"voucherlist_dateloop\" 1}}",
+                "{{add \"voucherlist_dateloop\" -1}}",
+                "{{getMonthDateFromUnkown .currentPeriod \"200601\" .voucherlist_dateloop \"200601\" | set \"next_date\"}}"
+            ]
+        },
+        {
+            "tag": "voucherlist_monthly_result",
+            "condition": "{{notEmpty \"book_id\"}}",
+            "page": "http://{{.url_prefix}}.chanapp.com/chanjet/finance/restlet/v2/web/voucher/VoucherList?ACCOUNTBOOK={{.book_id}}&period={{.next_date}}&_dc={{nowMillTimestamp}}",
+            "method": "GET",
+            "header": {
+                "Referer": "{{.index_url}}"
+            },
+            "response_timeout": 20,
+            "visit_times": 10,
+            "disable_upload": true,
+            "output_filename": "voucherlist.ajax",
+            "doc_type": "json",
+            "extractor_new": true,
+            "extractor":{
+                "{{.name}}_{{.user_id}}{{.book_id}}": {
+                    "voucherlist":{
+                        "{{.next_date}}": "resultObj.data"
+                    }
+                }
+            },
+            "actions": [
+                {
+                    "condition": "{{and (lt -14 .voucherlist_dateloop) (timeBefore .startPeriod \"200601\" .next_date \"200601\")}}",
+                    "opers": [
+                        "{{add \"voucherlist_dateloop\" -1}}",
+                        "{{getMonthDateFromUnkown .currentPeriod \"200601\" .voucherlist_dateloop \"200601\" | set \"next_date\"}}"
+                    ],
+                    "goto": "voucherlist_monthly_result"
+                }
+            ]
+        },
+        {
+            "context_opers": [
+                "{{getMonthDate -1 \"200601\" | set \"subject_date\"}}"
+            ]
+        },
+        {
+            "page": "http://{{.url_prefix}}.chanapp.com/chanjet/finance/restlet/v2/web/subject/GetSubjectsByStatus?ACCOUNTBOOK={{.book_id}}",
+            "method": "POSTJSON",
+            "json_post_body": {
+                "date": "{{.subject_date}},{{.subject_date}}",
+                "iType": "3",
+                "bookID": "{{.book_id}}"
+            },
+            "header": {
+                "Referer": "{{.index_url}}"
+            },
+            "response_timeout": 20,
+            "visit_times": 10,
+            "disable_upload": true,
+            "output_filename": "getSubjects.json",
+            "doc_type": "json",
+            "context_opers": [
+                "{{del \"subjects\"}}",
+                "{{extractJson \"resultObj\" ._body | set \"subjects\"}}"
+            ]
+        },
+        {
+            "context_opers": [
+                "{{del \"subject_index\"}}",
+                "{{del \"len_subjects\"}}",
+                "{{add \"subject_index\" -1}}",
+                "{{len .subjects | set \"len_subjects\"}}"
+            ]
+        },
+        {
+            "tag": "crawl_subject_result",
+            "context_opers": [
+                "{{add \"subject_index\" 1}}"
+            ],
+            "actions": [
+                {
+                    "condition": "{{eq .subject_index .len_subjects}}",
+                    "goto": "get_next_account"
+                }
+            ]
+        },
+        {
+            "context_opers": [
+                "{{del \"subject_id\"}}",
+                "{{del \"subject_name\"}}",
+                "{{del \"subject_no\"}}",
+                "{{del \"len_no\"}}",
+                "{{getValueFromArrayMap .subject_index \"id\" .subjects | set \"subject_id\"}}",
+                "{{getValueFromArrayMap .subject_index \"text\" .subjects | set \"subject_name\"}}",
+                "{{getValueFromArrayMap .subject_index \"no\" .subjects | set \"subject_no\"}}",
+                "{{len .subject_no | set \"len_no\"}}"
+            ],
+            "actions": [
+                {
+                    "condition": "{{ne .len_no 4}}",
+                    "goto": "crawl_subject_result"
+                }
+            ]
+        },
+        {
+            "condition": "{{notEmpty \"subject_id\"}}",
+            "context_opers": [
+                "{{set \"account_dateloop\" 1}}",
+                "{{add \"account_dateloop\" -1}}",
+                "{{getMonthDateFromUnkown .currentPeriod \"200601\" .account_dateloop \"200601\" | set \"next_date\"}}"
+            ]
+        },
+        {
+            "condition": "{{notEmpty \"subject_id\"}}",
+            "tag": "get_subject_months",
+            "page": "http://{{.url_prefix}}.chanapp.com/chanjet/finance/restlet/v2/web/detailaccount/Query?ACCOUNTBOOK={{.book_id}}&queryCond=%7B%22period%22%3A%22{{.next_date}}-{{.next_date}}%22%2C%22subject%22%3A{{.subject_id}}%2C%22tag%22%3A0%2C%22isentry%22%3A%22false%22%2C%22assistant%22%3A{{.subject_id}}%7D&_dc={{nowMillTimestamp}}",
+            "method": "GET",
+            "header": {
+                "Referer": "{{.index_url}}"
+            },
+            "response_timeout": 20,
+            "visit_times": 10,
+            "disable_upload": true,
+            "output_filename": "subject.json",
+            "doc_type": "json",
+            "extractor_new": true,
+            "extractor":{
+                "{{.name}}_{{.user_id}}{{.book_id}}":{
+                    "detailaccount": {
+                        "{{.subject_name}}": {
+                            "{{.next_date}}": "resultObj"
+                        }
+                    }
+                }
+            },
+            "actions": [
+                {
+                    "condition": "{{and (lt -14 .account_dateloop) (timeBefore .startPeriod \"200601\" .next_date \"200601\")}}",
+                    "opers": [
+                        "{{add \"account_dateloop\" -1}}",
+                        "{{getMonthDateFromUnkown .currentPeriod \"200601\" .account_dateloop \"200601\" | set \"next_date\"}}"
+                    ],
+                    "goto": "get_subject_months"
+                }
+            ]
+        },
+        {
+            "actions": [
+                {
+                    "condition": "{{lt .subject_index .len_subjects}}",
+                    "goto": "crawl_subject_result"
+                }
+            ]
+        },
+        {
+            "tag": "get_next_account",
+            "actions": [
+                {
+                    "condition": "{{lt .account_result_index .end_index}}",
+                    "goto": "crawl_account_result"
+                }
+            ]
+        },
+        {
+            "tag": "final"
+        }
+    ]
+}

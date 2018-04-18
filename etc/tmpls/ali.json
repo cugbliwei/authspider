@@ -1,0 +1,2078 @@
+{
+	"enable_browser":true,
+    "steps" : [
+        {
+            "context_opers": [
+                "{{notEmpty \"taobao_shop\" | whichOne \"tbloan\" \"tmloan\" | set \"which_loan\"}}",
+                "{{notEmpty \"taobao_shop\" | whichOne \"taobao\" \"tmall\" | set \"shop_type\"}}"
+            ]
+        },
+        {
+            "tag": "tmlogin",
+            "need_param": "username,password"
+        },
+        {
+            "condition": "{{empty \"first_login\"}}",
+            "context_opers": [
+                "{{set \"first_login\" \"true\"}}"
+            ],
+            "browser_steps": [
+                {
+                    "get": "https://login.taobao.com/member/login.jhtml?tpl_redirect_url=https%3A%2F%2Fi.taobao.com%2Fmy_taobao.htm&style=miniall&enup=true&newMini2=true&full_redirect=true&sub=true&from=taobaoindex&allp=assets_css%3D3.0.5/login_pc.css&pms=1489128076423",
+                    "sleep": 2000
+                },
+                {
+                    "click": "#J_Quick2Static",
+                    "sleep": 1000
+                }
+            ]
+        },
+        {
+            "tag": "send_up",
+            "browser_steps": [
+                {
+                    "send_keys": {
+                        "#TPL_username_1": "{{.username}}"
+                    },
+                    "sleep": 300
+                },
+                {
+                    "send_keys": {
+                        "#TPL_password_1": "{{.password}}"
+                    },
+                    "select_output": {
+                        "slide_text": "#nc_1__scale_text .nc-lang-cnt"
+                    },
+                    "screen_shot": "index.png",
+                    "page_source": "index.html"
+                }
+            ],
+            "actions": [
+                {
+                    "condition": "{{contains \"请按住滑块\" .slide_text}}",
+                    "delete_context": ["slide_text"],
+                    "goto": "check_slide"
+                }
+            ]
+        },
+        {
+            "tag": "submit",
+            "browser_steps": [
+                {
+                    "click": "#J_SubmitStatic",
+                    "sleep": 2000,
+                    "screen_shot": "login.png",
+                    "page_source": "login.html"
+                },
+                {
+                    "condition":{
+                        "exist_element": "#J_LoginCheck"
+                    },
+                    "ahead_end": true,
+                    "select_output": {
+                        "first_check_type": "c:true"
+                    }
+                },
+                {
+                    "condition":{
+                        "exist_element": ".ui-tiptext",
+                        "context_key": "safeMsg"
+                    },
+                    "ahead_end": true
+                },
+                {
+                    "condition":{
+                        "exist_element": "#J_Message .error",
+                        "context_key": "errMsg"
+                    },
+                    "ahead_end": true
+                },
+                {
+                    "condition":{
+                        "exist_element": "#nc_1__scale_text .nc-lang-cnt",
+                        "context_key": "slide_text"
+                    },
+                    "ahead_end": true
+                },
+                {
+                    "condition":{
+                        "exist_element": ".login-check-left"
+                    },
+                    "ahead_end": true,
+                    "select_output": {
+                        "second_check_type": "c:true"
+                    }
+                },
+                {
+                    "condition":{
+                        "exist_element": ".s-my-stuffs",
+                        "context_key": "login_msg"
+                    },
+                    "ahead_end": true
+                }
+            ],
+            "actions": [
+                {
+                    "condition": "{{notEmpty \"first_check_type\"}}",
+                    "goto": "first_type_login"
+                },
+                {
+                    "condition": "{{notEmpty \"login_msg\"}}",
+                    "goto": "loginSuccess"
+                },
+                {
+                    "condition": "{{notEmpty \"second_check_type\"}}",
+                    "goto": "second_type_login"
+                },
+                {
+                    "condition": "{{contains \"请按住滑块\" .slide_text}}",
+                    "delete_context": ["slide_text"],
+                    "goto": "check_slide"
+                },
+                {
+                    "condition": "{{contains \"密码和账户名不匹配\" .errMsg}}",
+                    "delete_context": ["username", "password"],
+                    "message":{
+                        "status": "wrong_password",
+                        "data": "用户名或密码错误"
+                    },
+                    "goto": "tmlogin"
+                },
+                {
+                    "condition": "{{contains \"账户存在安全风险\" .safeMsg}}",
+                    "message":{
+                        "status": "fail",
+                        "data": "账户存在安全风险，请使用扫码登录"
+                    }
+                },
+                {
+                    "condition": "{{eq 1 1}}",
+                    "goto": "send_sms"
+                }
+            ]
+        },
+        {
+            "tag": "check_slide",
+            "browser_steps": [
+                {
+                    "select_output": {
+                        "slide_text": "#nc_1__scale_text .nc-lang-cnt"
+                    },
+                    "sleep": 1000
+                }
+            ],
+            "actions": [
+                {
+                    "condition": "{{contains \"验证通过\" .slide_text}}",
+                    "delete_context": ["slide_text"],
+                    "goto": "send_up"
+                },
+                {
+                    "condition": "{{eq 1 1}}",
+                    "delete_context": ["slide_text"],
+                    "goto": "check_slide"
+                }
+            ]
+        },
+        {
+            "tag": "second_type_login",
+            "browser_steps": [
+                {
+                    "switch_frame": 1,
+                    "sleep": 200
+                },
+                {
+                    "condition":{
+                        "exist_element": ".ui-form-other"
+                    },
+                    "click": ".ui-form-other",
+                    "sleep": 3000,
+                    "screen_shot": "ui_form_other.png",
+                    "page_source": "ui_form_other.html"
+                },
+                {
+                    "condition":{
+                        "exist_element": "#otherValidator"
+                    },
+                    "click": "#otherValidator",
+                    "sleep": 3000,
+                    "screen_shot": "otherValidator.png",
+                    "page_source": "otherValidator.html"
+                },
+                {
+                    "condition":{
+                        "exist_element": "a[href*='tag=8']"
+                    },
+                    "click": "a[href*='tag=8']",
+                    "sleep": 3000
+                }
+            ]
+        },
+        {
+            "tag": "first_type_login",
+            "browser_steps": [
+                {
+                    "switch_frame": 1,
+                    "sleep": 200
+                }
+            ]
+        },
+        {
+            "tag": "send_sms",
+            "browser_steps": [
+                {
+                    "select_output": {
+                        "phone_number": ".ui-form-text"
+                    }
+                },
+                {
+                    "click": ".getcheckcode",
+                    "sleep": 1000,
+                    "screen_shot": "send_sms.png",
+                    "page_source": "send_sms.html"
+                }
+            ],
+            "actions": [
+                {
+                    "condition": "{{notEmpty \"phone_number\"}}",
+                    "message":{
+                        "status": "need_param",
+                        "need_param": "password2",
+                        "data": "{{.phone_number}}"
+                    }
+                }
+            ]
+        },
+        {
+            "tag": "push_sms",
+            "condition": "{{notEmpty \"phone_number\"}}",
+            "need_param": "password2",
+            "browser_steps": [
+                {
+                    "send_keys":{
+                        ".ui-input-checkcode": "{{.password2}}"
+                    },
+                    "click": ".submit",
+                    "sleep": 2000,
+                    "screen_shot": "sms_login.png",
+                    "page_source": "sms_login.html"
+                },
+                {
+                    "condition":{
+                        "exist_element": ".ui-tiptext-error",
+                        "context_key": "password2_errMsg"
+                    }
+                },
+                {
+                    "condition":{
+                        "exist_element": ".s-my-stuffs",
+                        "context_key": "login_msg"
+                    }
+                }
+            ],
+            "actions": [
+                {
+                    "condition": "{{notEmpty \"login_msg\"}}",
+                    "goto": "loginSuccess"
+                },
+                {
+                    "condition": "{{contains \"手机验证码错误\" .password2_errMsg}}",
+                    "delete_context": ["password2", "password2_errMsg"],
+                    "message":{
+                        "status": "wrong_second_password",
+                        "need_param": "password2",
+                        "data": "短信验证码错误"
+                    },
+                    "goto": "push_sms"
+                },
+                {
+                    "condition": "{{containAny \"校验码错误次数过多\" \"请重新获取\" \"过期\" \"失效\" .password2_errMsg}}",
+                    "delete_context": ["password2", "password2_errMsg"],
+                    "message":{
+                        "status": "wrong_second_password",
+                        "need_param": "password2",
+                        "data": "请输入新的短信验证码"
+                    },
+                    "goto": "send_sms"
+                },
+                {
+                    "condition": "{{eq 1 1}}",
+                    "message":{
+                        "status": "fail",
+                        "data": "手机验证码错误次数过多，请重新登录"
+                    }
+                }
+            ]
+        },
+        {
+            "tag": "loginSuccess",
+            "browser_cookie_sync": true,
+            "page": "https://i.taobao.com/my_taobao.htm",
+            "output_filename": "my_taobao.htm",
+            "method": "GET",
+            "response_timeout": 15,
+            "visit_times": 3,
+            "doc_type": "html",
+            "context_opers": [
+                "{{extractHtml \"#mtb-userid&attr=value\" ._body | set \"username\"}}",
+                "{{extractHtml \"#mtb-nickname&attr=value\" ._body | set \"origin_wangwang\"}}"
+            ],
+            "actions": [
+                {
+                    "condition": "{{empty \"username\"}}",
+                    "message":{
+                        "status": "fail",
+                        "data": "网络错误"
+                    }
+                }
+            ],
+            "extractor": {
+                "username": "c:{{.username}}"
+            }
+        },
+        {
+            "page": "https://myseller.taobao.com/ajax/widget.do?t={{nowMillTimestamp}}&name=seller_info",
+            "method": "GET",
+            "response_timeout": 15,
+            "visit_times": 3,
+            "output_filename": "myseller.htm",
+            "context_opers": [
+                "{{extractHtml \".view-shop a @index=0&attr=href&prefix=https:\" ._body | set \"shop_url\"}}",
+                "{{empty \"shop_url\" | whichOne \"https://store.taobao.com/shop/view_shop.htm\" \"{{.shop_url}}\" | set \"shop_url\"}}"
+            ]
+        },
+        {
+            "page": "{{.shop_url}}",
+            "method": "GET",
+            "doc_type": "html",
+            "response_timeout": 15,
+            "visit_times": 3,
+            "output_filename": "shop_index.htm",
+            "header": {
+                "Referer": "https://i.taobao.com/my_taobao.htm"
+            },
+            "context_opers": [
+                "{{extractRegex \"user-rate-([^-]+).htm\" ._body | set \"rate_link\"}}",
+                "{{extractRegex \"shopId=([0-9]*)\" ._body | set \"shop_id\"}}",
+                "{{extractRegex \"userId\\\":\\\"([0-9]*)\\\",\" ._body | set \"user_id\"}}",
+                "{{extractHtml \".skin-box-bd .shop-name\" ._body | set \"shop_name\"}}",
+                "{{extractHtml \".shop-name-link\" ._body | set \"isCompanyShop\"}}",
+                "{{extractHtml \".seller-name\" ._body | extractRegex \"掌柜：(.*)\" | set \"taobao_wangwang\"}}",
+                "{{extractHtml \".info-item:contains('柜：')\" ._body | extractRegex \"柜：(.*)\" | set \"taobao2_wangwang\"}}",
+                "{{extractHtml \".ks-datalazyload\" ._body | extractHtml \".shopkeeper a\" | set \"tmall_wangwang\"}}",
+                "{{empty \"taobao_wangwang\" | whichOne \"{{.taobao2_wangwang}}\" \"{{.taobao_wangwang}}\" | set \"wangwang\"}}",
+                "{{empty \"wangwang\" | whichOne \"{{.tmall_wangwang}}\" \"{{.wangwang}}\" | set \"wangwang\"}}",
+                "{{empty \"wangwang\" | whichOne \"{{.origin_wangwang}}\" \"{{.wangwang}}\" | set \"wangwang\"}}",
+                "{{add \"loan_page_index\" 1}}",
+                "{{add \"other_page_index\" 1}}"
+            ],
+            "actions": [
+                {
+                    "condition": "{{empty \"shop_id\"}}",
+                    "message":{
+                        "status": "fail",
+                        "data": "请用淘宝卖家账号登录"
+                    }
+                }
+            ]
+        },
+        {
+            "doc_type": "html",
+            "extractor": {
+                "shopid": "c:{{.shop_id}}",
+                "shop_name": "c:{{.shop_name}}",
+                "wangwang": "c:{{.wangwang}}",
+                "is_company_shop": "c:{{notEmpty \"isCompanyShop\"}}"
+            },
+            "message": {
+                "status": "login_success",
+                "data": "{{._extractor}}"
+            },
+            "login_success": true
+        },
+        {
+            "page": "https://rate.taobao.com/ShopService4C.htm?userNumId={{.rate_link}}&shopID={{.shop_id}}&isB2C=true",
+            "method": "GET",
+            "response_timeout": 15,
+            "visit_times": 3,
+            "doc_type": "json",
+            "output_filename": "RATE_shopservice.json",
+            "extractor": {
+                "O_RATE_SHOPSERVICE_AJAX": {
+                    "data": "*",
+                    "params": {}
+                }
+            }
+        },
+        {
+            "page": "https://sapp.taobao.com/report/targetData.do",
+            "method": "GET",
+            "condition": "{{false}}",
+            "doc_type": "json",
+            "response_timeout": 15,
+            "visit_times": 3,
+            "output_filename": "SELL_RPT_targetdata.json",
+            "context_opers": [
+                "{{set \"tips\" \"unavailable from 2017-10-23 any more\"}}"
+            ],
+            "extractor": {
+                "O_SELL_RPT_TARGETDATA_AJAX": {
+                    "data": "*",
+                    "params": {}
+                }
+            }
+        },
+        {
+            "page": "https://healthcenter.taobao.com/home/health_home.htm",
+            "method": "GET",
+            "response_timeout": 25,
+            "visit_times": 2
+        },
+        {
+            "page": "https://healthcenter.taobao.com/home/punish_history.htm",
+            "method": "GET",
+            "response_timeout": 25,
+            "visit_times": 2
+        },
+        {
+            "tag": "prepare_punish_query",
+            "context_opers": [
+                "{{set \"page_idx\" 1}}"
+            ]
+        },
+        {
+            "tag": "query_punish",
+            "page": "https://healthcenter.taobao.com/home/json/GetPunishHistory.json?page={{.page_idx}}&startTime={{addDate -1 0 0 \"2006-01-02\"}}&endTime={{nowTime \"2006-01-02\"}}&pointRange=0%2C1%2C2%2C5&resultId=&_ksTS={{nowMillTimestamp}}_{{randIntn 1000}}&callback=jsonp38",
+            "method": "GET",
+            "header": {
+                "Referer": "https://healthcenter.taobao.com/home/punish_history.htm"
+            },
+            "response_timeout": 15,
+            "visit_times": 3,
+            "doc_type": "json",
+            "output_filename": "punish.json",
+            "context_opers": [
+                "{{extractRegex \"\\\\((.*)\\\\)\" ._body | set \"punish_json\"}}",
+                "{{extractJson \"punish_history_list.module\" .punish_json | len | set \"pcount\"}}"
+            ],
+            "extractor_source": "{{.punish_json}}",
+            "extractor": {
+                "O_PUNISH_AJAX": "punish_history_list.module"
+            },
+            "actions":[
+                {
+                    "condition": "{{and (gt .pcount 0) (lt .page_idx 5)}}",
+                    "opers":[
+                        "{{add \"page_idx\" 1}}"
+                    ],
+                    "goto": "query_punish"
+                }
+            ]
+        },
+        {
+            "page": "https://jinpaimj.taobao.com/widget/jinpai.htm",
+            "method": "GET",
+            "response_timeout": 15,
+            "visit_times": 3,
+            "doc_type": "html",
+            "output_filename": "JINPAI.html",
+            "extractor": {
+                "O_JINPAI_HTML": {
+                    "是否金牌卖家": ":this&attr=text&regex=(尚未通过|不符合金牌卖家)&convert=尚未通过:否,不符合金牌卖家:否&default=是",
+                    "考核期内认证结果": {
+                        "_root": "tbody",
+                        "信用等级": "tr:contains('信用等级') td @index=2",
+                        "开店时长": "tr:contains('开店时长') td @index=2",
+                        "消费者保障计划": "tr:contains('消费者保障计划') td @index=2",
+                        "交易额": "tr:contains('交易额') td @index=2",
+                        "好评率": "tr:contains('好评率') td @index=2",
+                        "宝贝与描述相符度": "tr:contains('宝贝与描述相符度') td @index=2",
+                        "卖家服务态度": "tr:contains('卖家服务态度') td @index=2",
+                        "发货速度": "tr:contains('发货速度') td @index=2",
+                        "纠纷率": "tr:contains('纠纷率') td @index=2",
+                        "自然年内一般违规处罚": "tr:contains('自然年内一般违规处罚') td @index=2",
+                        "自然年内严重违规处罚": "tr:contains('自然年内严重违规处罚') td @index=2",
+                        "售假处罚(含去年未清零)": "tr:contains('含去年未清零') td @index=2",
+                        "二手商品订单数占比": "tr:contains('二手商品订单数占比') td @index=2",
+                        "在线虚拟宝贝": "tr:contains('在线虚拟宝贝') td @index=2",
+                        "经营资质（酒类、宠物、图书）": "tr:contains('经营资质') td @index=2",
+                        "买家喜爱度": "tr:contains('买家喜爱度') td @index=2"
+                    },
+                    "入选规则": {
+                        "_root": "tbody",
+                        "信用等级": "tr:contains('信用等级') td @index=1",
+                        "开店时长": "tr:contains('开店时长') td @index=1",
+                        "消费者保障计划": "tr:contains('消费者保障计划') td @index=1",
+                        "交易额": "tr:contains('交易额') td @index=1",
+                        "好评率": "tr:contains('好评率') td @index=1",
+                        "宝贝与描述相符度": "tr:contains('宝贝与描述相符度') td @index=1",
+                        "卖家服务态度": "tr:contains('卖家服务态度') td @index=1",
+                        "发货速度": "tr:contains('发货速度') td @index=1",
+                        "纠纷率": "tr:contains('纠纷率') td @index=1",
+                        "自然年内一般违规处罚": "tr:contains('自然年内一般违规处罚') td @index=1",
+                        "自然年内严重违规处罚": "tr:contains('自然年内严重违规处罚') td @index=1",
+                        "售假处罚(含去年未清零)": "tr:contains('售假处罚(含去年未清零)') td @index=1",
+                        "二手商品订单数占比": "tr:contains('二手商品订单数占比') td @index=1",
+                        "在线虚拟宝贝": "tr:contains('在线虚拟宝贝') td @index=1",
+                        "经营资质（酒类、宠物、图书）": "tr:contains('经营资质（酒类、宠物、图书）') td @index=1",
+                        "买家喜爱度": "tr:contains('买家喜爱度') td @index=1"
+                    },
+                    "params": {}
+                }
+            }
+        },
+        {
+            "tag": "do_trade_query",
+            "page": "http://pay.taobao.com/payments/tradeDetailFrame.htm",
+            "method": "POST",
+            "doc_type": "html",
+            "response_timeout": 15,
+            "visit_times": 3,
+            "output_filename": "PAY_TRADE.htm",
+            "params": {
+                "pageNo": "{{if empty \"T_current_page\"}}1{{else}}{{.T_current_page}}{{end}}",
+                "tfsId": "",
+                "fileName": "",
+                "isFullScreen": "false",
+                "billCycleBegin": "201002",
+                "billCycleEnd": "{{nowTime \"200601\"}}",
+                "countsType": "0",
+                "checkType": "monthly",
+                "isSearch": "true",
+                "action": "payments/ExportFileAction",
+                "event_submit_do_search": "anything",
+                "quickSelectTime": "preMonth",
+                "_tb_token_": "{{.cookie__tb_token_}}"
+            },
+            "header": {
+                "Referer": "http://pay.taobao.com/payments/tradeDetailFrame.htm"
+            },
+            "context_opers": [
+                "{{extractHtml \"#J_LastPage\" ._body | stringToInt | set \"total_page\"}}",
+                "{{if empty \"T_current_page\"}}{{set \"T_current_page\" 1}}{{end}}",
+                "{{add \"T_current_page\" 1}}"
+            ],
+            "extractor": {
+                "O_PAY_TRADE_HTML": {
+                    "收支情况": {
+                        "_root": "tbody tr",
+                        "@key td @index=0": {
+                            "拍下支付金额": "td @index=1",
+                            "确认收货金额": "td @index=2",
+                            "支付宝到账金额": "td @index=3",
+                            "已确认未到账金额": "td @index=4",
+                            "未确认已到账金额": "td @index=5",
+                            "售后退款金额": "td @index=6"
+                        }
+                    },
+                    "params": {}
+                }
+            },
+            "actions": [
+                    {
+                        "condition": "{{and (le .T_current_page .total_page) (lt .T_current_page 10)}}",
+                        "goto": "do_trade_query"
+                    }
+            ]
+        },
+        {
+            "page": "http://pay.taobao.com/payments/expendDetailFrame.htm",
+            "method": "POST",
+            "response_timeout": 15,
+            "visit_times": 3,
+            "doc_type": "html",
+            "output_filename": "PAY_EXPEND.htm",
+            "params": {
+                "submitType": "",
+                "checkType": "monthly",
+                "pageNo": "",
+                "isFullScreen": "false",
+                "fileType": "",
+                "_tb_token_": "{{.cookie__tb_token_}}",
+                "action": "payments/MonthlyUserBillAction",
+                "event_submit_do_search": "anything",
+                "itemId": "",
+                "itemCode": "",
+                "quickSelectTime": "preMonth",
+                "billCycleBegin": "201408",
+                "billCycleEnd": "{{getMonthDate -1 \"200601\"}}",
+                "accountItemId": "-1"
+            },
+            "extractor": {
+                "O_PAY_EXPEND_HTML": {
+                    "收支情况": {
+                        "_root": "tbody tr",
+                        "{{extractHtml \"td @index=0\" ._body | contains \"无查询结果\" | whichOne \"000000\" \"{{._tmp}}\"}}": {
+                            "支出类别": "td @index=1",
+                            "支出项目": "td @index=2",
+                            "本月支出": "td @index=3",
+                            "本月付款": "td @index=4",
+                            "本月交易额": "td @index=5",
+                            "累计未付款": "td @index=6"
+                        }
+                    },
+                    "params": {}
+                }
+            }
+        },
+        {
+            "page": "http://pay.taobao.com/payments/refundDetailFrame.htm",
+            "method": "POST",
+            "response_timeout": 15,
+            "visit_times": 3,
+            "doc_type": "html",
+            "output_filename": "PAY_REFUND.htm",
+            "params": {
+                "checkType": "monthly",
+                "action": "payments/ExportFileAction",
+                "event_submit_do_search": "anything",
+                "isFullScreen": "false",
+                "pageNo": "",
+                "isSearch": "true",
+                "quickSelectTime": "preMonth",
+                "billCycleBegin": "201408",
+                "billCycleEnd": "{{getMonthDate -1 \"200601\"}}",
+                "_tb_token_": "{{.cookie__tb_token_}}"
+            },
+            "extractor": {
+                "O_PAY_REFUND_HTML": {
+                    "收支情况": {
+                        "_root": "tbody tr",
+                        "{{extractHtml \"td @index=0\" ._body | contains \"无查询结果\" | whichOne \"000000\" \"{{._tmp}}\"}}": {
+                            "售中退款-未发货": "td @index=1",
+                            "售中退款-已发货": "td @index=2",
+                            "售后退款": "td @index=3"
+                        }
+                    }
+                }
+            }
+        },
+        {
+            "tag": "prepare_tech_annual_fee",
+            "context_opers": [
+                "{{set \"year_idx\" 1}}",
+                "{{addDate .year_idx 0 0 \"2006\" | set \"year_label\"}}"
+            ]
+        },
+        {
+            "tag": "tech_annual_fee",
+            "doc_type": "json",
+            "page": "https://pay.taobao.com/berries/techyearfee/performanceInfo/getList.json?_input_charset=utf-8&_tb_token_={{.cookie__tb_token_}}&jsonObject=%7B%22curYear%22%3A{{.year_label}}%7D",
+            "context_opers": [
+                "{{add \"year_idx\" -1}}",
+                "{{addDate .year_idx 0 0 \"2006\" | set \"year_label\"}}"
+            ],
+            "output_filename": "tech_annual_fee_{{.year_label}}.json",
+            "extractor": {
+                "annual_fee": "*"
+            },
+            "actions": [
+                {
+                    "condition": "{{gt .year_idx -2}}",
+                    "goto": "tech_annual_fee"
+                }
+            ]
+        },
+        {
+            "tag": "order_clear",
+            "page": "http://notice.taobao.com/order_exam.htm",
+            "method": "GET",
+            "doc_type": "html",
+            "output_filename": "order_exam.htm",
+            "response_timeout": 10,
+            "visit_times": 3,
+            "context_opers": [
+                "{{set \"tips\" \"maybe available for tmall only\"}}"
+            ]
+        },
+        {
+            "tag": "order_exam_content",
+            "page": "http://notice.taobao.com/json/extension/getFakeTradeOrders.do?_input_charset=utf-8&page=1&keyword=&state=&pageSize=15&_ksTS=1505184141371_76",
+            "method": "GET",
+            "doc_type": "json",
+            "output_filename": "order_exam.json",
+            "response_timeout": 10,
+            "visit_times": 3,
+            "extractor": {
+                "O_ORDER_EXAM_JSON": {
+                    "data": "*"
+                }
+            }
+        },
+        {
+            "page": "https://ecrm.taobao.com/p/customer/ecrm_member_list.htm?tagName=&groupId=0&buyerNick=&grade=-1&minTradeAmount=1000&maxTradeAmount=&minTradeCount=10&maxTradeCount=1&startTradeTime={{addDate -1 0 0 \"2006-01-02\"}}&endTradeTime={{nowTime \"2006-01-02\"}}&province=0&sex=0&minBirthday=&maxBirthday=&status=0&sort=default&sendType=&mPageSize=200",
+            "method": "GET",
+            "response_timeout": 15,
+            "visit_times": 3,
+            "doc_type": "html",
+            "output_filename": "TD_AMT.htm",
+            "params": {
+                "sendType": "1",
+                "status": "0",
+                "grade": "-1",
+                "minTradeAmount": "1000",
+                "minTradeCount": "1",
+                "province": "0",
+                "sex": "0",
+                "type":"deal",
+                "mPageSize": "200",
+                "startTradeTime": "{{addDate -1 0 0 \"2006-01-02\"}}",
+                "endTradeTime": "{{nowTime \"2006-01-02\"}}",
+                "currentPage": "0"
+            },
+            "context_opers":[
+                    "{{extractRegex \"您好，这是(.*)送您的\" ._body | set \"uname_html\"}}",
+                    "{{extractHtml \"span\" .uname_html | set \"uname\"}}"
+            ],
+            "extractor": {
+                "O_TD_AMT_1000_HTML": {
+                    "用户名": "c:{{.uname}}",
+                    "已订阅": "c:{{contains \"还未订购\" ._body | whichOne \"false\" \"true\"}}",
+                    "客户管理": {
+                        "_root": "div#dealedCustomers div.content-table table tbody tr @slice=0:-2",
+                        "@key td @index=0 span.user-head": {
+                            "交易额（元）": " td @index=2",
+                            "交易次数（笔）": "td @index=3",
+                            "平均订单金额（元）": "td @index=4",
+                            "上次交易时间": "td @index=5",
+                            "客户来源": "td @index=1 span.customer-level"
+                        }
+                    },
+                    "params": {
+                        "mPageSize": "c:200",
+                        "currentPage": "c:0",
+                        "startTradeTime": "c:{{addDate -1 0 0 \"2006-01-02\"}}",
+                        "endTradeTime": "c:{{nowTime \"2006-01-02\"}}"
+                    }
+                }
+            }
+        },
+        {
+            "page": "https://ecrm.taobao.com/p/customer/ecrm_member_list.htm?tagName=&groupId=0&buyerNick=&grade=-1&minTradeAmount=0&maxTradeAmount=&minTradeCount=10&maxTradeCount=&startTradeTime={{addDate -1 0 0 \"2006-01-02\"}}&endTradeTime={{nowTime \"2006-01-02\"}}&province=0&sex=0&minBirthday=&maxBirthday=&status=0&sort=default&sendType=&mPageSize=200",
+            "method": "GET",
+            "response_timeout": 15,
+            "visit_times": 3,
+            "doc_type": "html",
+            "output_filename": "TD_CNT.htm",
+            "context_opers":[
+                    "{{extractRegex \"您好，这是(.*)送您的\" ._body | set \"uname_html\"}}",
+                    "{{extractHtml \"span\" .uname_html | set \"uname\"}}"
+            ],
+            "params": {
+                "sendType": "1",
+                "status": "0",
+                "grade": "-1",
+                "minTradeCount": "10",
+                "province": "0",
+                "minTradeAmount": "0.01",
+                "sex": "0",
+                "type":"deal",
+                "mPageSize": "200",
+                "startTradeTime": "{{addDate -1 0 0 \"2006-01-02\"}}",
+                "endTradeTime": "{{nowTime \"2006-01-02\"}}",
+                "currentPage": "0",
+                "_tb_token_": "{{.cookie__tb_token_}}"
+            },
+            "extractor": {
+                "O_TD_CNT_10_HTML": {
+                    "用户名": "c:{{.uname}}",
+                    "已订阅": "c:{{contains \"还未订购\" ._body | whichOne \"false\" \"true\"}}",
+                    "客户管理": {
+                        "_root": "div#dealedCustomers div.content-table table tbody tr @slice=0:-2",
+                        "@key td @index=0 span.user-head": {
+                            "交易额（元）": " td @index=2",
+                            "交易次数（笔）": "td @index=3",
+                            "平均订单金额（元）": "td @index=4",
+                            "上次交易时间": "td @index=5",
+                            "客户来源": "td @index=1 span.customer-level"
+                        }
+                    },
+                    "params": {
+                        "mPageSize": "c:200",
+                        "currentPage": "c:0",
+                        "startTradeTime": "c:{{addDate -1 0 0 \"2006-01-02\"}}",
+                        "endTradeTime": "c:{{nowTime \"2006-01-02\"}}"
+                    }
+                }
+            }
+        },
+        {
+            "page": "http://member1.taobao.com/member/fresh/deliver_address.htm",
+            "method": "GET",
+            "response_timeout": 15,
+            "visit_times": 3,
+            "doc_type": "html",
+            "output_filename": "MY_ADDRESS.htm",
+            "extractor": {
+                "O_MY_ADDRESS_HTML": {
+                    "收货地址":{
+                        "_root": "tbody .thead-tbl-address",
+                        "收货人": "td @index=0",
+                        "所在地区": "td @index=1",
+                        "详细地址": "td @index=2",
+                        "邮编": "td @index=3",
+                        "电话/手机": "td @index=4"
+                    },
+                    "params": {}
+                }
+            }
+        },
+        {
+            "page": "https://rate.taobao.com/myRate.htm",
+            "method": "GET",
+            "response_timeout": 15,
+            "visit_times": 3,
+            "doc_type": "html",
+            "output_filename": "MY_RATE.htm",
+            "extractor": {
+                "O_MY_RATE_HTML":{
+                    "用户名": ".personal-info .clearfix dd @index=0",
+                    "dsr": {
+                        "宝贝与描述相符": "tr:contains('宝贝与描述相符') .c-value-no em",
+                        "卖家的服务态度": "tr:contains('卖家的服务态度') .c-value-no em",
+                        "物流服务的质量": "tr:contains('物流服务的质量') .c-value-no em"
+                    },
+                    "卖家累积信用": ".ico-seller a @index=0",
+                    "卖家好评率": ".rate-summary strong @index=0",
+                    "累积信用详情" : {
+                        "_root": "tbody @index=1",
+                        "最近1周" : {
+                            "好评": "tr:contains('好评') td @index=1",
+                            "中评": "tr:contains('中评') td @index=1",
+                            "差评": "tr:contains('差评') td @index=1",
+                            "总计": "tr:contains('总计') td @index=1"
+                        },
+                        "最近1个月" : {
+                            "好评": "tr:contains('好评') td @index=2",
+                            "中评": "tr:contains('中评') td @index=2",
+                            "差评": "tr:contains('差评') td @index=2",
+                            "总计": "tr:contains('总计') td @index=2"
+                        },
+                        "最近6个月" : {
+                            "好评": "tr:contains('好评') td @index=3",
+                            "中评": "tr:contains('中评') td @index=3",
+                            "差评": "tr:contains('差评') td @index=3",
+                            "总计": "tr:contains('总计') td @index=3"
+                        },
+                        "6个月前" : {
+                            "好评": "tr:contains('好评') td @index=4",
+                            "中评": "tr:contains('中评') td @index=4",
+                            "差评": "tr:contains('差评') td @index=4",
+                            "总计": "tr:contains('总计') td @index=4"
+                        },
+                        "总计" : {
+                            "好评": "tr:contains('好评') td @index=5",
+                            "中评": "tr:contains('中评') td @index=5",
+                            "差评": "tr:contains('差评') td @index=5",
+                            "总计": "tr:contains('总计') td @index=5"
+                        }
+                    },
+                    "params": {}
+                }
+            }
+        },
+        {
+            "page": "https://ishop.taobao.com/setup/shop_basic.htm",
+            "method": "GET",
+            "response_timeout": 15,
+            "visit_times": 3,
+            "doc_type": "html",
+            "output_filename": "SETTING.htm",
+            "context_opers":[
+                "{{extractRegex \"\\\\s+focus:\\\\s?(\\\\d+)\" ._body | set \"address_code\"}}",
+                "{{extractHtml \"#J_ContactAddresss input&attr=value\" ._body | set \"detail_address\"}}",
+                "{{set \"shop_basic_body\" ._body}}",
+                "{{set \"formal_address\" \"\"}}"
+            ]
+        },
+        {
+            "tag": "query_address_code",
+            "page": "https://lsp.wuliu.taobao.com/locationservice/addr/outputParentDivisons.do?divisionId={{.address_code}}&callback=jsonp601",
+            "response_timeout": 15,
+            "output_filename": "shop_basic_address.jsonp",
+            "visit_times": 3,
+            "doc_type": "html",
+            "context_opers": [
+                "{{extractRegex \"jsonp601\\\\((.*)\\\\)\" ._body | set \"address_json_obj\"}}",
+                "{{extractRegexReplace \"'\" \"\\\"\" .address_json_obj | set  \"address_json_obj\"}}",
+                "{{extractJson \"province.name\" .address_json_obj | set \"a\"}}",
+                "{{extractJson \"city.name\" .address_json_obj | set \"b\"}}",
+                "{{extractJson \"area.name\" .address_json_obj | set \"c\"}}",
+                "{{extractJson \"town.name\" .address_json_obj | set \"d\"}}",
+                "{{joinString .a .b .c .d | set \"formal_address\"}}"
+            ]
+        },
+        {
+            "tag": "do_shop_basic_output",
+            "page": "http://authcrawler.yixin.com/health",
+            "method": "GET",
+            "response_timeout": 15,
+            "visit_times": 3,
+            "doc_type": "html",
+            "extractor_source": "{{.shop_basic_body}}",
+            "extractor": {
+                "O_SETTING_HTML": {
+                    "店铺名称": "#sh-name&attr=value",
+                    "店铺简介": "#sh-intro",
+                    "联系地址": "c:{{joinString .formal_address \"_\" .detail_address}}",
+                    "主要货源": ".source-item input[checked]&attr=id&regex=(off-line|store|alibaba|distribution|made-myself|oem|free-way|not-sure)&convert=off-line:线下批发市场,store:实体店拿货,alibaba:阿里巴巴批发,distribution:分销/代销,made-myself:自己生产,oem:代工生产,free-way:自由公司渠道,not-sure:货源还未确定",
+                    "params": {}
+                }
+            }
+        },
+        {
+            "condition": "{{eq .shop_type \"tmall\"}}",
+            "page": "https://zhaoshang.tmall.com/udform/udfPageFromPC.htm?tpTypeId=102&bizTypeId=13&formName=viewSellerInfo",
+            "method": "GET",
+            "response_timeout": 15,
+            "visit_times": 3,
+            "doc_type": "html",
+            "output_filename": "CARD_COMPANY.htm",
+            "extractor": {
+                "O_CARD_COMPANY_HTML": {
+                    "公司信息": {
+                        "_root": "#tab_first #content",
+                        "支付宝帐号：": ".fRow:contains('支付宝帐号') .value",
+                        "公司名称：": ".fRow:contains('公司名称') .value",
+                        "*工商营业执照注册号：": ".fRow:contains('工商营业执照注册号') .value",
+                        "*法人姓名：": ".fRow:contains('法人姓名') .value",
+                        "*公司注册地址：": ".fRow:contains('公司注册地址') .value",
+                        "*公司联系地址：": ".fRow:contains('公司联系地址') .value",
+                        "*邮政编码：": ".fRow:contains('邮政编码') .value",
+                        "*公司性质：": ".fRow:contains('公司性质') .value",
+                        "*注册资金：": ".fRow:contains('注册资金') .value",
+                        "*纳税人规模：": ".fRow:contains('纳税人规模') .value",
+                        "*营业执照有效期：": ".fRow:contains('营业执照有效期') .value",
+                        "*营业执照经营范围：": ".fRow:contains('营业执照经营范围') .value",
+                        "*公司成立时间：": ".fRow:contains('公司成立时间') .value",
+                        "公司官网地址：": ".fRow:contains('公司官网地址') .value",
+                        "*主营渠道：": ".fRow:contains('主营渠道') .value",
+                        "*经营产品来源：": ".fRow:contains('经营产品来源') .value",
+                        "*公司荣誉：": ".fRow:contains('公司荣誉') .value",
+                        "实体店数量：": ".fRow:contains('实体店数量') .value",
+                        "公司代表性实体店：": ".fRow:contains('公司代表性实体店') .value",
+                        "网店数量：": ".fRow:contains('网店数量') .value",
+                        "网店地址：": ".fRow:contains('网店地址') .value"
+                    },
+                    "店铺信息": {
+                        "_root": "#tab_second #content",
+                        "*店铺运营情况：": ".fRow:contains('店铺运营情况') .value",
+                        "*ERP情况：": ".fRow:contains('ERP情况') .value",
+                        "*电商人数：": ".fRow:contains('电商人数') .value",
+                        "*客服人数：": ".fRow:contains('客服人数') .value",
+                        "*运营人数：": ".fRow:contains('运营人数') .value",
+                        "*美工人数：": ".fRow:contains('美工人数') .value",
+                        "*仓库情况：": ".fRow:contains('仓库情况') .value",
+                        "*仓库面积：": ".fRow:contains('仓库面积') .value",
+                        "*日常发货能力：": ".fRow:contains('日常发货能力') .value",
+                        "*电商经验：": ".fRow:contains('电商经验') .value"
+                    },
+                    "人员信息": {
+                        "_root": "#tab_third #content",
+                        "公司负责人信息": {
+                            "_root": ".zs-title:contains('公司负责人信息') ~ fieldset .fCon @index=0",
+                            "*姓名：": ".fRow:contains('姓名') .value",
+                            "*职位：": ".fRow:contains('职位') .value",
+                            "*手机号码：": ".fRow:contains('手机号码') .value",
+                            "*电子邮箱：": ".fRow:contains('电子邮箱') .value",
+                            "*旺旺号码：": ".fRow:contains('旺旺号码') .value"
+                        },
+                        "运营总监": {
+                            "_root": ".zs-title:contains('运营总监') ~ fieldset .fCon @index=0",
+                            "姓名：": ".fRow:contains('姓名') .value",
+                            "职位：": ".fRow:contains('职位') .value",
+                            "手机号码：": ".fRow:contains('手机号码') .value",
+                            "电子邮箱：": ".fRow:contains('电子邮箱') .value",
+                            "旺旺号码：": ".fRow:contains('旺旺号码') .value"
+                        },
+                        "双11总负责人": {
+                            "_root": ".zs-title:contains('双11总负责人') ~ fieldset .fCon @index=0",
+                            "姓名：": ".fRow:contains('姓名') .value",
+                            "职位：": ".fRow:contains('职位') .value",
+                            "手机号码：": ".fRow:contains('手机号码') .value",
+                            "电子邮箱：": ".fRow:contains('电子邮箱') .value",
+                            "旺旺号码：": ".fRow:contains('旺旺号码') .value"
+                        },
+                        "店长信息": {
+                            "_root": ".zs-title:contains('店长信息') ~ fieldset .fCon @index=0",
+                            "*姓名：": ".fRow:contains('姓名') .value",
+                            "*职位：": ".fRow:contains('职位') .value",
+                            "*手机号码：": ".fRow:contains('手机号码') .value",
+                            "*电子邮箱：": ".fRow:contains('电子邮箱') .value",
+                            "传真号码：": ".fRow:contains('传真号码') .value",
+                            "*旺旺号码：": ".fRow:contains('旺旺号码') .value"
+                        },
+                        "活动推广": {
+                            "_root": ".zs-title:contains('活动推广') ~ fieldset .fCon @index=0",
+                            "姓名：": ".fRow:contains('姓名') .value",
+                            "职位：": ".fRow:contains('职位') .value",
+                            "手机号码：": ".fRow:contains('手机号码') .value",
+                            "电子邮箱：": ".fRow:contains('电子邮箱') .value",
+                            "旺旺号码：": ".fRow:contains('旺旺号码') .value"
+                        },
+                        "其它运营人员": {
+                            "_root": ".zs-title:contains('其它运营人员') ~ fieldset .fCon @index=0",
+                            "@key .value": ".value"
+                        },
+                        "客服主管": {
+                            "_root": ".zs-title:contains('客服主管') ~ fieldset .fCon @index=0",
+                            "姓名：": ".fRow:contains('姓名') .value",
+                            "职位：": ".fRow:contains('职位') .value",
+                            "手机号码：": ".fRow:contains('手机号码') .value",
+                            "电子邮箱：": ".fRow:contains('电子邮箱') .value",
+                            "旺旺号码：": ".fRow:contains('旺旺号码') .value"
+                        },
+                        "其它客服人员": {
+                            "_root": ".zs-title:contains('其它客服人员') ~ fieldset .fCon @index=0",
+                            "@key .value": ".value"
+                        }
+                    },
+                    "params": {}
+                }
+            }
+        },
+        {
+            "condition": "{{eq .shop_type \"tmall\"}}",
+            "page": "https://ecrm.taobao.com/home_page.htm",
+            "method": "GET",
+            "response_timeout": 15,
+            "visit_times": 3,
+            "doc_type": "html",
+            "output_filename": "MEMBER_RL.htm",
+            "extractor": {
+                "O_MEMBER_RL_HTML": {
+                    "用户名": ".site-nav-group .site-nav-nick",
+                    "客户概况": {
+                        "_root": "tbody @index=0",
+                        "会员数": "tr:contains('会员数') td @index=0",
+                        "近7天增加会员": "tr:contains('会员数') td @index=1",
+                        "活跃会员数": "tr:contains('活跃会员数') td @index=0",
+                        "沉睡会员数": "tr:contains('活跃会员数') td @index=1",
+                        "标签数": "tr:contains('标签数') td @index=0",
+                        "标签会员数": "tr:contains('标签数') td @index=1",
+                        "微淘粉丝数": "tr:contains('微淘粉丝数') td @index=0"
+                    },
+                    "客户分析": {
+                        "_root": "tbody @index=1",
+                        "昨日": {
+                            "新客户UV": "tr:contains('昨日') td @index=1",
+                            "新客户转化率（%）": "tr:contains('昨日') td @index=2",
+                            "老客户UV": "tr:contains('昨日') td @index=3",
+                            "老客户转化率（%）": "tr:contains('昨日') td @index=4"
+                        },
+                        "前日": {
+                            "新客户UV": "tr:contains('前日') td @index=1",
+                            "新客户转化率（%）": "tr:contains('前日') td @index=2",
+                            "老客户UV": "tr:contains('前日') td @index=3",
+                            "老客户转化率（%）": "tr:contains('前日') td @index=4"
+                        },
+                        "两天前": {
+                            "新客户UV": "tr:contains('两天前') td @index=1",
+                            "新客户转化率（%）": "tr:contains('两天前') td @index=2",
+                            "老客户UV": "tr:contains('两天前') td @index=3",
+                            "老客户转化率（%）": "tr:contains('两天前') td @index=4"
+                        },
+                        "行业平均": {
+                            "新客户UV": "tr:contains('行业平均') td @index=1",
+                            "新客户转化率（%）": "tr:contains('行业平均') td @index=2",
+                            "老客户UV": "tr:contains('行业平均') td @index=3",
+                            "老客户转化率（%）": "tr:contains('行业平均') td @index=4"
+                        },
+                        "当前现状": {
+                            "新客户UV": "tr:contains('当前现状') td @index=1",
+                            "新客户转化率（%）": "tr:contains('当前现状') td @index=2",
+                            "老客户UV": "tr:contains('当前现状') td @index=3",
+                            "老客户转化率（%）": "tr:contains('当前现状') td @index=4"
+                        }
+                    },
+                    "params": {
+                        "tag": "c:rentong"
+                    }
+                }
+            }
+        },
+        {
+            "condition": "{{eq .shop_type \"tmall\"}}",
+            "page": "https://ecrm.taobao.com/asyn/resultMessage.htm?action=/analysis_action&event_submit_doGetTradeLayer=true",
+            "method": "GET",
+            "response_timeout": 15,
+            "visit_times": 3,
+            "doc_type": "json",
+            "output_filename": "MEMBER_RL_trade.json",
+            "extractor": {
+                "O_MEMBER_RL_TRADE_AJAX": {
+                    "data": "*",
+                    "params": {
+                        "tag": "c:rentong"
+                    }
+                }
+            }
+        },
+        {
+            "condition": "{{eq .shop_type \"tmall\"}}",
+            "page": "https://ecrm.taobao.com/asyn/resultMessage.htm?action=/analysis_action&event_submit_doGetVIPLayer=true",
+            "method": "GET",
+            "response_timeout": 15,
+            "visit_times": 3,
+            "doc_type": "json",
+            "output_filename": "MEMBER_RL_vip.json",
+            "extractor": {
+                "O_MEMBER_RL_VIP_AJAX": {
+                    "data": "*",
+                    "params": {
+                        "tag": "c:rentong"
+                    }
+                }
+            }
+        },
+        {
+            "condition": "{{eq .shop_type \"tmall\"}}",
+            "page": "https://zhaoshang.tmall.com/maintaininfo/tmallServiceArea.htm",
+            "method": "GET",
+            "response_timeout": 15,
+            "visit_times": 3,
+            "doc_type": "html",
+            "output_filename": "TMALL_SERVICE_AREA.htm",
+            "extractor": {
+                "O_TMALL_SERVICE_AREA_HTML": {
+                    "startTime": ".tss-list .tss-data strong @index=0",
+                    "params": {
+                        "tag": "c:rentong"
+                    }
+                }
+            }
+        },
+        {
+            "page": "https://login.taobao.com/member/aliloanAsoGateway.do?target=https%3A%2F%2Ftaobao.aliloan.com%3Ftracelog%3Daliloan_mjzx_alipay",
+            "header": {
+                "Referer": "https://myseller.taobao.com/seller_admin.htm"
+            },
+            "method": "GET",
+            "response_timeout": 15,
+            "visit_times": 3,
+            "context_opers": [
+                "{{extractRegex \"location.href\\\\s?=\\\\s?\\\"(.*)\\\"\" ._body | set \"loan_login_redirect_url\"}}"
+            ],
+            "output_filename": "index.htm"
+        },
+        {
+            "condition": "{{notEmpty \"loan_login_redirect_url\"}}",
+            "page": "{{.loan_login_redirect_url}}",
+            "method": "GET",
+            "output_filename": "loan_redirect_page.html"
+        },
+        {
+            "tag": "loan_list_novice_education",
+            "context_opers": [
+                "{{add \"currentPageIndex\" 0}}",
+                "{{set \"fmm\" \"0\"}}",
+                "{{set \"fmmi\" \"0\"}}"
+            ]
+        },
+        {
+            "page": "https://loan.mybank.cn/loan/loan.htm?c=taobao&site=2",
+            "method": "GET",
+            "output_filename": "loan_loan.html",
+            "context_opers": [
+                "{{set \"tips\" \"for fetch ctoken cookie\"}}",
+                "{{extractRegex \"location.href\\\\s?=\\\\s?\\\"(.*)\\\"\" ._body | set \"loan_loan_redirect_url\"}}"
+            ]
+        },
+        {
+            "condition": "{{notEmpty \"loan_loan_redirect_url\"}}",
+            "page": "{{.loan_loan_redirect_url}}",
+            "method": "GET",
+            "output_filename": "loan_loan_redirect_page.html"
+        },
+        {
+            "tag": "crawl_loan_list",
+            "page": "https://loan.mybank.cn/taobao/{{.which_loan}}/query/loan_list.htm",
+            "method": "POST",
+            "doc_type": "html",
+            "response_timeout": 15,
+            "visit_times": 3,
+            "header": {
+                "Referer": "https://myseller.taobao.com/seller_admin.htm"
+            },
+            "output_filename": "loan_list_page_{{.currentPageIndex}}.htm",
+            "params":{
+                "_fm.lo._0.d": "allDate",
+                "_fm.lo._0.pr": "primary",
+                "_fm.lo._0.s": "",
+                "_fm.loa._0.m": "{{.fmm}}",
+                "_fm.loa._0.mi": "{{.fmmi}}",
+                "_fm.loa._0.p": "30",
+                "_fm.loa._0.pa": "{{.currentPageIndex}}",
+                "_fm.loa._0.u": "true",
+                "scrollFormTop": "233"
+            },
+            "context_opers": [
+                "{{extractHtml \".maxId&attr=value\" ._body | set \"fmm\"}}",
+                "{{extractHtml \".minId&attr=value\" ._body | set \"fmmi\"}}",
+                "{{extractHtml \".page-next\" ._body | set \"current_page\"}}"
+            ],
+            "actions": [
+                {
+                    "condition": "{{and (extractHtml \"title\" ._body | contains \"新手教育\") (lt .loan_page_index 2)}}",
+                    "opers": [
+                        "{{add \"loan_page_index\" 1}}"
+                    ],
+                    "goto": "loan_list_novice_education",
+                    "delete_extract": ["O_LOAN_LIST_HTML"]
+                },
+                {
+                    "condition": "{{and (eq .current_page \"下一页\") (lt .currentPageIndex 4)}}",
+                    "opers": [
+                        "{{add \"currentPageIndex\" 1}}"
+                    ],
+                    "goto": "crawl_loan_list"
+                }
+            ],
+            "extractor": {
+                "O_LOAN_LIST_HTML": {
+                    "_root": "tbody tr",
+                    "贷款记录": {
+                        "时间": ".pl16",
+                        "产品": "td .c6 @index=0",
+                        "金额": ".pr24 .cGreen",
+                        "状态": ".tc .c6"
+                    },
+                    "params": {}
+                }
+            }
+        },
+        {
+            "tag": "loan_info_novice_education",
+            "page": "https://loan.mybank.cn/taobao/{{.which_loan}}/user/info_edit.htm",
+            "method": "GET",
+            "response_timeout": 15,
+            "visit_times": 3,
+            "doc_type": "html",
+            "output_filename": "LOAN_INFO.htm",
+            "actions": [
+                {
+                    "condition": "{{and (extractHtml \"title\" ._body | contains \"新手教育\") (lt .other_page_index 2)}}",
+                    "opers": [
+                        "{{add \"other_page_index\" 1}}"
+                    ],
+                    "goto": "loan_info_novice_education",
+                    "delete_extract": ["O_LOAN_INFO_HTML"]
+                },
+                {
+                    "condition": "{{extractHtml \".auto-loan-mng-container .main-content .title\" ._body | contains \"您已停止自动贷\"}}",
+                    "goto": "loan_index"
+                },
+                {
+                    "condition": "{{extractHtml \"title\" ._body | containAny \"天猫贷款\"  \"淘宝贷款\"}}",
+                    "goto": "loan_index"
+                }
+            ],
+            "extractor": {
+                "O_LOAN_INFO_HTML": {
+                    "用户名": ".login-info strong.fl&regex=您好，(.*)",
+                    "真实姓名": "#memberName",
+                    "申请人淘宝ID": "#siteMemId",
+                    "天猫ID": "#shopkeeperId",
+                    "公司固定电话": "#telNo&attr=value",
+                    "身份证号": "#certNoHidden",
+                    "支付宝绑定手机号": "#mobileNo",
+                    "婚姻状况": ".fm-item:contains('婚姻状况') input[checked]&attr=id&regex=(maritalStatus1|maritalStatus2|maritalStatus3|maritalStatus4)&convert=maritalStatus1:未婚,maritalStatus2:已婚,maritalStatus3:离异,maritalStatus4:丧偶",
+                    "店铺经营人与注册人的关系": ".fm-item:contains('店铺经营人') input[checked]&attr=id&regex=(relationship1|relationship2|relationship3|relationship4|relationship5)&convert=relationship1:本人,relationship2:夫妻,relationship3:朋友,relationship4:直系亲属,relationship5:其他",
+                    "店铺经营地": "#bizAddress&attr=value",
+                    "常住地址": "#liveAddress&attr=value",
+                    "是否有其他经营的店铺": ".fm-item:contains('经营的店铺') input[checked]&attr=id&regex=(hasOtherShop1|hasOtherShop2)&convert=hasOtherShop1:有,hasOtherShop2:无",
+                    "紧急联系人": {
+                        "紧急联系人姓名": "#contactName&attr=value",
+                        "手机号": "#contactMobileNo&attr=value",
+                        "与借款人关系": ".fm-item:contains('与借款人关系') input[checked]&attr=id&regex=(contactRel1|contactRel2|contactRel3|contactRel4)&convert=contactRel1:直系亲属,contactRel2:合伙人,contactRel3:朋友,contactRel4:其他"
+                    },
+                    "放款支付宝账号": {
+                        "信用类贷款": ".fm-item:contains('信用类贷款') span",
+                        "订单类贷款": ".fm-item:contains('订单类贷款') span"
+                    },
+                    "params": {
+                        "tag": "c:rentong"
+                    }
+                }
+            }
+        },
+        {
+            "tag": "loan_index",
+            "page": "https://loan.mybank.cn/taobao/{{.which_loan}}/index.htm",
+            "method": "GET",
+            "response_timeout": 15,
+            "visit_times": 3,
+            "header": {
+                "Host": "taobao.aliloan.com",
+                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.10; rv:42.0) Gecko/20100101 Firefox/42.0"
+            },
+            "output_filename": "LOAN_INDEX.htm",
+            "sleep": 1
+        },
+        {
+            "page": "https://loan.mybank.cn/taobao/{{.which_loan}}/ajax/index/query_access_and_credit_limit.htm?productIds=2029_0%2C2001_0%2C2001_1&times=1",
+            "method": "GET",
+            "response_timeout": 15,
+            "visit_times": 3,
+            "doc_type": "json",
+            "output_filename": "MY_CREDIT_queryaccess.json",
+            "extractor": {
+                "O_MY_CREDIT_QUERYACCESS_AJAX": {
+                    "data": "*",
+                    "params": {}
+                }
+            }
+        },
+        {
+            "page": "https://loan.mybank.cn/taobao/{{.which_loan}}/ajax/index/query_order_credit_limit.htm?productIds=&times=1",
+            "method": "GET",
+            "response_timeout": 15,
+            "visit_times": 3,
+            "doc_type": "json",
+            "output_filename": "MY_CREDIT_queryorder.json",
+            "extractor": {
+                "O_MY_CREDIT_QUERYORDER_AJAX": {
+                    "data": "*",
+                    "params": {}
+                }
+            }
+        },
+        {
+            "tag": "loans_novice_education",
+            "context_opers": [
+                "{{add \"currentPageLoans\" 0}}",
+                "{{set \"fmm\" \"0\"}}",
+                "{{set \"fmmi\" \"0\"}}"
+            ]
+        },
+        {
+            "tag": "crawl_loans_pages",
+            "context_opers": [
+                "{{add \"currentPageLoans\" 1}}"
+            ]
+        },
+        {
+            "page": "https://loan.mybank.cn/taobao/{{.which_loan}}/query/capital_details.htm",
+            "method": "POST",
+            "response_timeout": 15,
+            "visit_times": 3,
+            "doc_type": "html",
+            "output_filename": "LOANS_{{.currentPageLoans}}.htm",
+            "params": {
+                "_fm.loa._0.pa": "{{.currentPageLoans}}",
+                "_fm.loa._0.p": "99",
+                "_fm.loa._0.m": "{{.fmm}}",
+                "_fm.loa._0.mi": "{{.fmmi}}",
+                "_fm.loa._0.u": "true",
+                "_fm.lo._0.pr": "credit",
+                "_fm.lo._0.d": "3months",
+                "scrollFormTop": "0"
+            },
+            "context_opers": [
+                "{{extractHtml \".maxId&attr=value\" ._body | set \"fmm\"}}",
+                "{{extractHtml \".minId&attr=value\" ._body | set \"fmmi\"}}",
+                "{{extractHtml \".page-next\" ._body | set \"current_page\"}}", 
+                "{{extractHtml \".login-info strong.fl\" ._body | set \"name_label\"}}",
+                "{{extractRegex \"您好，(.*)\" .name_label | set \"pusername\"}}"
+            ],
+            "actions": [
+                {
+                    "condition": "{{extractHtml \"title\" ._body | contains \"新手教育\"}}",
+                    "goto": "loans_novice_education",
+                    "delete_extract": ["O_LOANS_HTML"]
+                },
+                {
+                    "condition": "{{gt .currentPageLoans 5}}",
+                    "goto": "crawl_loan_mybank"
+                },
+                {
+                    "condition": "{{eq .current_page \"下一页\"}}",
+                    "goto": "crawl_loans_pages"
+                }
+            ],
+            "extractor": {
+                "O_LOANS_HTML": {
+                    "用户名": "c:{{.pusername}}",
+                    "@dup0 使用中的贷款笔数": ".loan-mng-normal-content .cOrange",
+                    "@dup1 使用中的贷款笔数": ".loan-mng-chart-container .cOrange",
+                    "@dup0 贷款总额": ".loan-mng-normal-content .cGreen",
+                    "@dup1 贷款总额": ".loan-mng-chart-container .total-content .cGreen",
+                    "@dup0 使用中详情": {
+                        "_root": ".info ul li",
+                        "@key strong @index=0": "strong @index=1"
+                    },
+                    "@dup1 使用中详情": {
+                        "_root": ".loan-mng-normal-content",
+                        "@key p @index=0&regex=使用中的贷款状况：[\\s\\xA0]*([^\\s\\xA0]+)\\d+笔": ".cGreen"
+                    },
+                    "还款": {
+                        "_root": "tbody tr:contains('还款')",
+                        "@key td @index=1": {
+                            "创建时间": "td @index=0",
+                            "发生金额": "td @index=3",
+                            "本金": "td @index=4&regex=本金([0-9]*.[0-9]*)",
+                            "利息": "td @index=4&regex=利息([0-9]*.[0-9]*)"
+                        }
+                    },
+                    "放款": {
+                        "_root": "tbody tr:contains('放款')",
+                        "@key td @index=1": {
+                            "创建时间": "td @index=0",
+                            "发生金额": "td @index=3"
+                        }
+                    },
+                    "params": {
+                        "fmLo0Pa": "c:{{.currentPageLoans}}"
+                    }
+                }
+            }
+        },
+        {
+            "tag": "crawl_loan_mybank",
+            "page": "https://loan.mybank.cn/taobao/{{.which_loan}}/user/score/item_search.htm?hidden=false",
+            "method": "GET",
+            "response_timeout": 15,
+            "visit_times": 3,
+            "doc_type": "html",
+            "output_filename": "SCORE.htm",
+            "extractor": {
+                "O_SCORE_HTML": {
+                    "用户名": ".user-nick-name",
+                    "积分": ".cp-level-info span em @index=0",
+                    "特权": ".cp-level-info span em @index=1&regex=享([0-9]*)",
+                    "等级": ".cp-level-progress span @index=0",
+                    "积分明细": {
+                        "_root": "tbody tr",
+                        "时间": "td @index=0",
+                        "新增积分": "td @index=1",
+                        "失效积分": "td @index=2",
+                        "总积分": "td @index=3",
+                        "当日可得折扣": "td @index=4"
+                    },
+                    "params": {}
+                }
+            }
+        },
+        {
+            "page": "https://loan.mybank.cn/taobao/{{.which_loan}}/ajax/index/queryPhaseContainer.vm",
+            "method": "GET",
+            "response_timeout": 15,
+            "visit_times": 3,
+            "doc_type": "json",
+            "output_filename": "MY_CREDIT_phase.json",
+            "extractor": {
+                "O_MY_CREDIT_PHASE_AJAX": {
+                    "data": "*",
+                    "params": {
+                        "tag": "c:rentong"
+                    }
+                }
+            }
+        },
+        {
+            "page": "https://loan.mybank.cn/taobao/{{.which_loan}}/index.htm?urlAutoSelect=xy6",
+            "method": "GET",
+            "response_timeout": 15,
+            "visit_times": 3,
+            "doc_type": "html",
+            "output_filename": "MY_CREDIT.htm",
+            "extractor": {
+                "O_MY_CREDIT_HTML": {
+                    "_error": ".prod-left-info-content",
+                    "用户名": ".login-info strong.fl strong",
+                    "可用额度": {
+                        "订单贷款可用额度" : ".idx-left-bar-item-second .access-ammount @index=0",
+                        "短期贷款(3个月)可用额度" : ".idx-left-bar-item-second .access-ammount @index=1",
+                        "随借随还(6个月)可用额度" : ".idx-left-bar-item-second .access-ammount @index=2",
+                        "等额本金(12个月)可用额度" : ".idx-left-bar-item-second .access-ammount @index=3"
+                    },
+                    "近期还款计划" : {
+                        "_root": ".phase-item",
+                        "日期" : ".phase-left",
+                        "合计应还" : ".cBrown @last"
+                    },
+                    "params": {}
+                }
+            }
+        },
+        {
+            "tag": "my_credit_list_json",
+            "page": "https://loan.mybank.cn/loan/indexList.json?c=taobao&_input_charset=utf-8&ctoken={{.cookie_ctoken}}&_callback=cbk",
+            "method": "GET",
+            "doc_type": "json",
+            "response_timeout": 15,
+            "visit_times": 3,
+            "output_filename": "my_credit_list.json",
+            "context_opers": [
+                "{{extractRegex \"cbk\\\\((.*)\\\\)\" ._body | set \"json_body\"}}"
+            ],
+            "extractor_source": "{{.json_body}}",
+            "extractor": {
+                "O_MY_CREDIT_JSON": {
+                    "data": "*"
+                }
+            }
+        },
+        {
+            "tag": "my_repayplan_list_json",
+            "page": "https://loan.mybank.cn/loan/repayPlanList.json?c=taobao&_input_charset=utf-8&ctoken={{.cookie_ctoken}}&_callback=cbk",
+            "method": "GET",
+            "doc_type": "json",
+            "response_timeout": 15,
+            "visit_times": 3,
+            "output_filename": "my_repay_plan_list.json",
+            "context_opers": [
+                "{{extractRegex \"cbk\\\\((.*)\\\\)\" ._body | set \"json_body\"}}"
+            ],
+            "extractor_source": "{{.json_body}}",
+            "extractor": {
+                "O_MY_REPAY_PLAN_JSON": {
+                    "data": "*"
+                }
+            }
+        },
+        {
+            "tag": "pre_ali_credit_history_records",
+            "context_opers": [
+                "{{set \"mark\" 0}}"
+            ]
+        },
+        {
+            "tag": "ali_credit_history_records",
+            "condition": "{{lt .mark 5}}",
+            "page": "https://loan.mybank.cn/loan/list/credit_list.json?startDate={{stringToInt nowMillTimestamp | plus -31708799000}}&endDate={{nowMillTimestamp}}&applyTime=DC&loanTerm=ALL&repayType=RA&loanStatus=ALL&pageNumber={{.mark}}&_input_charset=utf-8&ctoken={{.cookie_ctoken}}&_callback=cbk",
+            "context_opers": [
+                "{{add \"mark\" 1}}",
+                "{{extractRegex \"cbk\\\\((.*)\\\\)\" ._body | set \"credit_json_body\"}}",
+                "{{extractJson \"data.hasNext\" .credit_json_body | set \"hasNextPage\"}}"
+            ],
+            "method": "GET",
+            "doc_type": "json",
+            "extractor_source": "{{.credit_json_body}}",
+            "extractor": {
+                "O_CREDIT_LIST_JSON": {
+                    "_array": true,
+                    "original_data": "*"
+                }
+            },
+            "output_filename": "credit_list_{{.mark}}.jsonp",
+            "actions": [
+                {
+                    "condition": "{{and (lt .mark 5) (eq .hasNextPage \"true\")}}",
+                    "goto": "ali_credit_history_records"
+                }
+            ]
+        },
+        {
+            "tag": "seller_admin_idx_page",
+            "page": "https://mai.taobao.com/seller_admin.htm",
+            "method": "GET",
+            "doc_type": "html",
+            "response_timeout": 15,
+            "visit_times": 3,
+            "output_filename": "seller_admin.htm"
+        },
+        {
+            "condition": "{{eq .shop_type \"taobao\"}}",
+            "page": "https://auth.alipay.com/login/trust_login.do?src={{.alipay_src}}&sign_from={{.alipay_sign_from}}&sign_account_no={{.alipay_account_no}}&goto={{.alipay_encode_url}}",
+            "method": "GET",
+            "header": {
+                "Referer": "https://i.taobao.com/my_taobao.htm"
+            },
+            "response_timeout": 15,
+            "visit_times": 3,
+            "output_filename": "alipay.htm"
+        },
+        {
+            "condition": "{{eq .shop_type \"taobao\"}}",
+            "page": "https://login.taobao.com/member/login.jhtml?tpl_redirect_url=https%3A%2F%2Fauthgtj.alipay.com%3A443%2Flogin%2FtrustLoginResultDispatch.htm%3FredirectType%3D%26sign_from%3D3000%26goto%3Dhttps%253A%252F%252Fmy.alipay.com%252Fportal%252Fi.htm%253Fsrc%253Dyy_content_jygl%2526sign_from%253D3000%2526sign_account_no%253D{{.alipay_account_no}}%2526src%253Dyy_content_jygl&from_alipay=1",
+            "method": "GET",
+            "header": {
+                "Referer": "https://i.taobao.com/my_taobao.htm"
+            },
+            "response_timeout": 15,
+            "visit_times": 3,
+            "output_filename": "alipay1.htm"
+        },
+        {
+            "condition": "{{eq .shop_type \"tmall\"}}",
+            "page": "https://auth.alipay.com/login/trust_login.do?src={{.alipay_src}}&sign_from={{.alipay_sign_from}}&sign_account_no={{.alipay_account_no}}&goto={{joinString \"https://shanghu.alipay.com/home/i.htm?src=yy_content_jygl&sign_from=3000&sign_account_no=\" .alipay_account_no | urlQueryEscape}}",
+            "method": "GET",
+            "header": {
+                "Referer": "https://i.taobao.com/my_taobao.htm"
+            },
+            "response_timeout": 15,
+            "visit_times": 3,
+            "output_filename": "alipay.htm"
+        },
+        {
+            "condition": "{{eq .shop_type \"tmall\"}}",
+            "page": "https://login.taobao.com/member/login.jhtml?tpl_redirect_url=https%3A%2F%2Fauthzth.alipay.com%3A443%2Flogin%2FtrustLoginResultDispatch.htm%3FredirectType%3D%26sign_from%3D3000%26goto%3Dhttps%253A%252F%252Fshanghu.alipay.com%252Fhome%252Fi.htm%253Fsrc%253Dyy_content_jygl%26sign_from%3D3000%26sign_account_no%3D{{.alipay_account_no}}&from_alipay=1",
+            "method": "GET",
+            "header": {
+                "Referer": "https://i.taobao.com/my_taobao.htm"
+            },
+            "response_timeout": 15,
+            "visit_times": 3,
+            "output_filename": "alipay1.htm"
+        },
+        {
+            "condition": "{{eq .shop_type \"taobao\"}}",
+            "page": "https://my.alipay.com/portal/i.htm",
+            "method": "GET",
+            "response_timeout": 15,
+            "visit_times": 2,
+            "doc_type": "html",
+            "context_opers": [
+                "{{extractHtml \"#J-userInfo-account-userEmail\" ._body | set \"alipay_account\"}}"
+            ]
+        },
+        {
+            "condition": "{{eq .shop_type \"taobao\"}}",
+            "page": "https://personalweb.alipay.com/account/index.htm",
+            "method": "GET",
+            "response_timeout": 15,
+            "visit_times": 2,
+            "doc_type": "html",
+            "context_opers": [
+                "{{extractHtml \"h2\" ._body | set \"shanghu\"}}"
+            ]
+        },
+        {
+            "condition": "{{and (eq .shop_type \"taobao\") (notEmpty \"shanghu\")}}",
+            "page": "https://personalweb.alipay.com/account/index.htm",
+            "method": "GET",
+            "doc_type": "html",
+            "response_timeout": 15,
+            "visit_times": 3,
+            "context_opers": [
+                "{{extractHtml \".global-username\" ._body | set \"wname\"}}",
+                "{{extractHtml \"#asideAccountName\" ._body | set \"wname2\"}}",
+                "{{if empty \"wname\"}}{{set \"wname\" .wname2}}{{end}}",
+                "{{extractHtml \"#global-username\" ._body | set \"alipay_account\"}}"
+            ],
+            "output_filename": "MY_ALIPAY.htm",
+            "extractor": {
+                "O_MY_ALIPAY_HTML": {
+                    "用户名": "c:{{.wname}}",
+                    "商户版支付宝账户": {
+                        "_root": ".info-table @index=0",
+                        "姓名": "tr em @index=0",
+                        "支付宝账户名": "c:{{.alipay_account}}",
+                        "手机号": "tr:contains('手机') td&regex=([0-9]+[\\*]+[0-9]+)",
+                        "邮箱": "tr:contains('Email') span",
+                        "注册时间": "tr:contains('注册时间') td"
+                    },
+                    "params": {}
+                }
+            }
+        },
+        {
+            "condition": "{{and (eq .shop_type \"taobao\") (empty \"shanghu\")}}",
+            "page": "https://personalweb.alipay.com/account/index.htm",
+            "method": "GET",
+            "doc_type": "html",
+            "response_timeout": 15,
+            "visit_times": 3,
+            "output_filename": "MY_ALIPAY.htm",
+            "extractor": {
+                "O_MY_ALIPAY_HTML": {
+                    "_root": ".table-list tbody",
+                    "用户名": "tr:contains('淘宝会员名') td @index=0",
+                    "个人版支付宝账户": {
+                        "姓名": "#username",
+                        "手机号": "tr:contains('手机') td .text-muted:contains('1')",
+                        "身份证号": "tr:contains('真实姓名') .text-muted @index=1",
+                        "邮箱": "tr:contains('邮箱') .text-muted",
+                        "淘宝账户名": "tr:contains('淘宝会员名') td @index=0",
+                        "支付宝账户": "c:{{.alipay_account}}",
+                        "注册时间": "tr:contains('注册时间') td @index=0"
+                    },
+                    "params": {}
+                }
+            }
+        },
+        {
+            "page": "https://memberprod.alipay.com/user/contacts/index.htm",
+            "method": "GET",
+            "doc_type": "html",
+            "response_timeout": 15,
+            "visit_times": 3,
+            "output_filename": "CONTACTS.htm",
+            "extractor": {
+                "O_CONTACTS_HTML": {
+                    "联系人": {
+                        "_root": ".c-tab-ctt dl",
+                        "姓名": ".truename",
+                        "联系方式": ".account&attr=title"
+                    },
+                    "params": {}
+                }
+            }
+        },
+        {
+            "condition": "{{eq .shop_type \"tmall\"}}",
+            "page": "https://shanghu.alipay.com/user/myAccount/index.htm",
+            "method": "GET",
+            "doc_type": "html",
+            "response_timeout": 15,
+            "visit_times": 3,
+            "output_filename": "MY_ALIPAY.htm",
+            "extractor": {
+                "O_MY_ALIPAY_HTML": {
+                    "用户名": "#global-toplink-username",
+                    "商户版支付宝账户": {
+                        "_root": ".info-list .info-table",
+                        "姓名": "em @index=0",
+                        "手机号": "td @index=2&regex=([0-9]*[*]*[0-9]*)",
+                        "注册时间": "td @index=4",
+                        "邮箱": "span @index=2"
+                    },
+                    "params": {
+                        "tag": "c:rentong"
+                    }
+                }
+            }
+        },
+        {
+            "condition": "{{eq .shop_type \"taobao\"}}",
+            "page": "https://consumeweb.alipay.com/record/month.json?all=true&date={{addDate 0 0 0 \"200601\"}}&ctoken={{.cookie_escape_ctoken}}",
+            "method": "GET",
+            "response_timeout": 15,
+            "visit_times": 3,
+            "doc_type": "json",
+            "output_filename": "MONTH_BILL.json",
+            "extractor": {
+                "O_MONTH_BILL_TRADEINFO_AJAX": {
+                    "data": "*"
+                }
+            }
+        },
+        {
+            "tag": "alipay_wealth",
+            "page": "https://my.alipay.com/wealth/index.html",
+            "method": "GET",
+            "doc_type": "json",
+            "output_filename": "WEALTH_INDEX.htm",
+            "context_opers": [
+                "{{extractRegex \"window.context\\\\s?=(.*?);</script>\" ._body | set \"json_value\"}}"
+            ],
+            "extractor_source": "{{.json_value}}",
+            "extractor": {
+                "O_ALIPAY_WEALTH": {
+                    "wealth": "wealth",
+                    "debts": "debts",
+                    "cards": "cards",
+                    "isAccountSafe": "isAccountSafe"
+                }
+            }
+        },
+        {
+            "tag": "switch_version",
+            "condition": "{{notEmpty \"gaojiban\"}}",
+            "page": "{{.gaojiban}}",
+            "method": "GET"
+        },
+        {
+            "condition":"{{eq .shop_type \"taobao\"}}",
+            "page":"https://consumeprod.alipay.com/record/advanced.htm",
+            "method":"GET",
+            "response_timeout": 15,
+            "visit_times": 3,
+            "doc_type":"html",
+            "output_filename":"pre_advanced.html",
+            "context_opers":[
+                "{{extractRegex \"var form_tk = \\\"([^\\\"]*)\" ._body | set \"token\"}}"
+            ]
+        },
+        {
+            "condition":"{{and (eq .shop_type \"taobao\") (notEmpty \"token\")}}",
+            "page":"http://authcrawler.yixin.com/submit?tmpl=taobao_ua&token={{.token}}",
+            "doc_type":"json",
+            "response_timeout":15,
+            "visit_times": 3,
+            "context_opers":[
+                "{{extractJson \"data\" ._body | set \"ua_result\"}}"
+            ]
+        },
+        {
+            "condition": "{{and (eq .shop_type \"taobao\") (notEmpty \"ua_result\")}}",
+            "page": "https://consumeprod.alipay.com/record/advanced.htm",
+            "method": "POST",
+            "doc_type": "html",
+            "params": {
+                "beginDate": "{{getMonthDate -2 \"2006.01.02\"}}",
+                "beginTime": "00:00",
+                "categoryId": "",
+                "dateRange": "customDate",
+                "dateType": "createDate",
+                "endDate": "{{nowTime \"2006.01.02\"}}",
+                "endTime": "24:00",
+                "fundFlow": "all",
+                "keyValue": "",
+                "keyword": "bizNo",
+                "maxAmount": "",
+                "minAmount": "",
+                "pageNum": "1",
+                "rdsToken": "{{.token}}",
+                "rdsUa": "{{.ua_result}}",
+                "status": "success",
+                "tradeType": "MOBILE_RECHARGE"
+            },
+            "response_timeout": 15,
+            "visit_times": 3,
+            "output_filename": "MOBILE_RECHARGE.html",
+            "context_opers": [
+                "{{extractHtml \".link a&attr=href\" ._body | set \"gaojiban\"}}"
+            ],
+            "actions": [
+                {
+                    "condition": "{{extractHtml \".link\" ._body | contains \"切换到高级版\"}}",
+                    "goto": "switch_version",
+                    "delete_extract": ["O_MOBILE_RECHARGE_HTML"]
+                }
+            ],
+            "extractor": {
+                "O_MOBILE_RECHARGE_HTML": {
+                    "_root": "#tradeRecordsIndex tbody tr",
+                    "创建日期": ".time .time-d",
+                    "具体时间": ".time .time-h",
+                    "名称": ".consume-title",
+                    "金额": ".amount-pay",
+                    "对方": ".other .name",
+                    "状态": ".status"
+                }
+            }
+        },
+        {
+            "condition": "{{notEmpty \"isCompanyShop\"}}",
+            "page": "https://shop{{.shop_id}}.taobao.com/company.htm",
+            "method": "GET",
+            "response_timeout": 15,
+            "visit_times": 3,
+            "output_filename": "shop_company.htm"
+        },
+        {
+            "context_opers": [
+                "{{set \"tips\" \"try to get shop rate data from shangtongdai site first\"}}",
+                "{{set \"shop_rate_from_site_res\" false}}"
+            ]
+        },
+        {
+            "condition": "{{notEmpty \"wangwang\"}}",
+            "tag": "get_rate_from_site",
+            "page": "http://shangtongdai-loans.yxapp.in/bizlogic/internal/qTokensDetails?account={{.wangwang}}&platform={{.shop_type}}",
+            "method": "GET",
+            "doc_type": "json",
+            "response_timeout": 10,
+            "visit_times": 2,
+            "output_filename": "shop_rate_from_site.json",
+            "context_opers": [
+                "{{gt (len ._body) 300 | set \"shop_rate_from_site_res\"}}",
+                "{{extractJson \"public_page_details\" ._body | set \"json\"}}"
+            ],
+            "extractor": {
+                "SHOP_RATE": {
+                    "data": "c:{{convertJsonToString .json}}"
+                }
+            },
+            "actions": [
+                {
+                    "condition": "{{not .shop_rate_from_site_res}}",
+                    "delete_extract": [
+                        "SHOP_RATE"
+                    ]
+                }
+            ]
+        },
+        {
+            "condition": "{{and (notEmpty \"wangwang\") (not .shop_rate_from_site_res)}}",
+            "page": "http://authcrawler.yixin.com/submit?tmpl=shop_rate&shop_id={{.wangwang}}&shop_type=SELLER_NAME",
+            "method": "GET",
+            "doc_type": "json",
+            "response_timeout": 30,
+            "visit_times": 2,
+            "output_filename": "shop_rate.json",
+            "extractor": {
+                "SHOP_RATE": {
+                    "data": "data"
+                }
+            }
+        },
+        {
+            "page": "https://d.alibaba.com/",
+            "method": "GET",
+            "response_timeout": 15,
+            "visit_times": 3,
+            "output_filename": "sycm_index.html",
+            "actions": [
+                {
+                    "condition": "{{extractHtml \"meta[name='description']&attr=content\" ._body | contains \"生意参谋2.0版\"}}",
+                    "goto": "new_sycm"
+                }
+            ]
+        },
+        {
+            "tag": "default_sycm",
+            "context_opers": [
+                "{{set \"sycm_version\" \"default_sycm\"}}",
+                "{{set \"sycmToken_page\" \"https://bda.sycm.taobao.com/tradinganaly/overview/overview.htm\"}}",
+                "{{set \"sycmToken_pattern\" \"token=([a-z0-9]+)\"}}",
+                "{{set \"version_page\" \"bda.sycm.taobao.com\"}}",
+                "{{set \"getShopRank_page\" \"https://beta.sycm.taobao.com/rank/getShopRank.json\"}}",
+                "{{set \"SYCM_DTL_page\" \"diy.sycm.taobao.com\"}}"
+            ]
+        },
+        {
+            "tag": "new_sycm",
+            "condition": "{{empty \"sycm_version\"}}",
+            "context_opers": [
+                "{{set \"sycm_version\" \"new_sycm\"}}",
+                "{{set \"sycmToken_page\" \"https://sycm.taobao.com/portal/index.htm\"}}",
+                "{{set \"sycmToken_pattern\" \"legalityToken=([a-z0-9]+);\"}}",
+                "{{set \"version_page\" \"sycm.taobao.com/bda\"}}",
+                "{{set \"getShopRank_page\" \"https://sycm.taobao.com/portal/rank/getShopRank.json\"}}",
+                "{{set \"SYCM_DTL_page\" \"sycm.taobao.com/adm\"}}"
+            ]
+        },
+        {
+            "page": "https://{{.SYCM_DTL_page}}/execute/preview.json?date=36&dateId=1006960&dateType=dynamic&filter=[6,9]&show=[{%22id%22:1007049},{%22id%22:1007203},{%22id%22:1007202},{%22id%22:1007204},{%22id%22:1014530},{%22id%22:1014529},{%22id%22:1016051},{%22id%22:1007206},{%22id%22:1007205},{%22id%22:1007208},{%22id%22:1007207},{%22id%22:1007210},{%22id%22:1016049},{%22id%22:1016056},{%22id%22:1007209},{%22id%22:1007053},{%22id%22:1014531},{%22id%22:1014532},{%22id%22:1007050},{%22id%22:1011719},{%22id%22:1014533},{%22id%22:1014534},{%22id%22:1007051},{%22id%22:1007052}]",
+            "method": "GET",
+            "doc_type": "json",
+            "response_timeout": 15,
+            "visit_times": 3,
+            "output_filename": "SYCM_DTL.json",
+            "context_opers": [
+                "{{extractJson \"data.content.data.msg\" ._body | set \"msg\"}}"
+            ],
+            "extractor": {
+                "O_SYCM-DTL_AJAX": {
+                    "data": "*",
+                    "params": {}
+                }
+            },
+            "actions": [
+                {
+                    "condition": "{{eq .msg \"huidu\"}}",
+                    "message":{
+                        "status": "fail",
+                        "data": "网络错误"
+                    }
+                }
+            ]
+        },
+        {
+            "page": "{{.sycmToken_page}}",
+            "method": "GET",
+            "response_timeout": 15,
+            "visit_times": 3,
+            "output_filename": "sycmToken.html",
+            "context_opers": [
+                "{{extractRegex .sycmToken_pattern ._body | set \"sycmToken\"}}"
+            ]
+        },
+        {
+            "page": "https://{{.version_page}}/tradinganaly/constitute/listLevelOneCategory.json?dateRange={{addDate 0 0 -30 \"2006-01-02\"}}%7C{{daysAgo 1 \"2006-01-02\"}}&dateType=recent30&device=0&token={{.sycmToken}}&_={{nowMillTimestamp}}",
+            "method": "GET",
+            "response_timeout": 15,
+            "visit_times": 3,
+            "doc_type": "json",
+            "output_filename": "listLevelOneCategory.json",
+            "extractor": {
+                "O_LISTLEVELONECATEGORY_AJAX": {
+                    "data": "*",
+                    "params": {}
+                }
+            }
+        },
+        {
+            "page": "{{.getShopRank_page}}",
+            "method": "GET",
+            "response_timeout": 15,
+            "visit_times": 3,
+            "doc_type": "json",
+            "output_filename": "getShopRank.json",
+            "extractor": {
+                "O_GETSHOPRANK_AJAX": {
+                    "data": "*",
+                    "params": {}
+                }
+            }
+        },
+        {
+            "tag": "query_refund_page",
+            "page": "https://sycm.taobao.com/portal/refund/getRefundTrend.json?dateType=month&dateRange={{firstDayOfMonthAgo 1 \"2006-01-02\"}}%7C{{lastDayOfMonthAgo 1 \"2006-01-02\" true}}&_={{nowMillTimestamp}}&token={{.sycmToken}}",
+            "doc_type": "json",
+            "response_timeout": 15,
+            "visit_times": 3,
+            "output_filename": "getRefundTrend.json",
+            "extractor": {
+                "O_GET_REFUND_TREND_AJAX": {
+                    "data": "*",
+                    "params": {
+                        "lastMonth": "c:{{firstDayOfMonthAgo 1 \"2006-01\"}}",
+                        "firstMonth": "c:{{firstDayOfMonthAgo 12 \"2006-01\"}}",
+                        "lastMonthSync": "c:{{firstDayOfMonthAgo 13 \"2006-01\"}}",
+                        "firstMonthSync": "c:{{firstDayOfMonthAgo 24 \"2006-01\"}}",
+                        "tips": "c:rfdSucAmt是成功退款金额，rfdSucAmtSync是去年同期"
+                    }
+                }
+            }
+        },
+        {
+            "page": "https://work.1688.com",
+            "method": "GET",
+            "response_timeout": 15,
+            "visit_times": 3,
+            "header": {
+                "Referer": "https://www.1688.com"
+            },
+            "context_opers": [
+                "{{containAny \"sdk\" \"cookie\" \"exist\" ._tmpl | whichOne \"true\" \"false\" | set \"is_app\"}}"
+            ]
+        },
+        {
+            "tag": "savecookie",
+            "condition": "{{eq .is_app \"false\"}}",
+            "page": "http://10.131.0.60:8180/taobaocookie",
+            "method": "POST",
+            "params": {
+                "data": "{{.all_cookies}}"
+            },
+            "response_timeout": 3,
+            "context_opers": [
+                "{{set \"tips\" ._body}}"
+            ]
+        },
+        {
+            "page": "https://rongzi.1688.com/creditbuy/index.htm",
+            "method": "GET",
+            "response_timeout": 15,
+            "visit_times": 3,
+            "header": {
+                "Referer": "https://work.1688.com"
+            },
+            "doc_type": "html",
+            "extractor": {
+                "rongzi": {
+                    "quota": ".quota"
+                }
+            }
+        },
+        {
+            "tag": "if request comes from mobile phone",
+            "need_param": "tmpl",
+            "doc_type": "json",
+            "extractor_source": "{}",
+            "extractor": {
+                "is_app": "c:{{.is_app}}"
+            }
+        },
+        {
+            "message": {
+                "status": "finish_fetch_data",
+                "data": "{\"username\": \"{{.username}}\"}"
+            }
+        }
+    ]
+}

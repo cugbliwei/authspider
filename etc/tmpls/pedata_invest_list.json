@@ -1,0 +1,52 @@
+{
+    "disable_outpubkey": true,
+    "steps": [
+        {
+            "context_opers": [
+                "{{set \"page_idx\" 1}}"
+            ]
+        },
+        {
+            "tag": "query_page",
+            "page": "http://m.pedata.cn/invest/list_{{.page_idx}}_0_0_0_0.html",
+            "header": {
+                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.113 Safari/537.36"
+            },
+            "method": "GET",
+            "response_timeout": 30,
+            "visit_times": 1,
+            "sleep": 1,
+            "doc_type": "html",
+            "output_filename": "pedata_list_{{.page_idx}}.html",
+            "extractor": {
+                "清科数据": {
+                    "_root": ".m_sj_one",
+                    "_array": true,
+                    "获投项目": {
+                        "_context": [
+                            {
+                                "_key": "no",
+                                "_value": ":this&attr=id"
+                            },
+                            {
+                                "_key": "name",
+                                "_value": ".m_sj_one_right .m_sj_one_right_text1"
+                            }
+                        ],
+                        "_url": "http://authcrawler.yixin.com/submit?tmpl=pedata_invest&link={{if empty \"no\"}}no_exist{{else}}http://m.pedata.cn/invest/detail_{{.no}}.html{{end}}&key={{if empty \"name\"}}no_exist{{else}}{{.name}}{{end}}",
+                        "_next": "http://authcrawler.yixin.com/submit?id="
+                    }
+                }
+            },
+            "actions": [
+                {
+                    "condition": "{{lt .page_idx 5}}",
+                    "opers": [
+                        "{{add \"page_idx\" 1}}"
+                    ],
+                    "goto": "query_page"
+                }
+            ]
+        }
+    ]
+}

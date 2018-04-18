@@ -1,0 +1,114 @@
+{
+    "steps": [
+        {
+            "tag": "generateQRCode",
+            "page": "https://mpassport.suning.com/ids/qrLoginUuidGenerate.htm?image=true&yys={{nowMillTimestamp}}",
+            "method": "GET",
+            "header": {
+                "Host": "mpassport.suning.com",
+                "Referer": "https://mpassport.suning.com/ids/login?service=https%3A%2F%2Fsopssl.suning.com%2Fsel%2FpopupLoginSuccess%3FtopLocation%3Dhttps%253A%2F%2Fsop.suning.com%2Fsel%2Flogin%2Flogon.action&loginTheme=sop_indexpop"
+            },
+            "upload_image": {
+                "format": "png",
+                "context_key": "qr_img"
+            },
+            "response_timeout": 10,
+            "visit_times": 3,
+            "output_filename": "qr_code.png",
+            "context_opers": [
+                "{{set \"checkQrcodeTimes\" 1}}"
+            ],
+            "message": {
+                "status": "OutputVerifyQrcode",
+                "data": "{{.qr_img}}"
+            },
+            "actions": [
+                {
+                    "condition": "{{empty \"qr_img\"}}",
+                    "message":{
+                        "status": "fail",
+                        "data": "网络错误"
+                    }
+                }
+            ]
+        },
+        {
+            "tag": "checkQrScan",
+            "page": "https://mpassport.suning.com/ids/qrLoginStateProbe?callback=jQuery18309080638861756689_{{nowMillTimestamp}}",
+            "method": "POST",
+            "params": {
+                "uuid": "{{.cookie_ids_qr_uuid}}"
+            },
+            "header": {
+                "Host": "mpassport.suning.com",
+                "Referer": "https://mpassport.suning.com/ids/login?service=https%3A%2F%2Fsopssl.suning.com%2Fsel%2FpopupLoginSuccess%3FtopLocation%3Dhttps%253A%2F%2Fsop.suning.com%2Fsel%2Flogin%2Flogon.action&loginTheme=sop_indexpop"
+            },
+            "context_opers": [
+                "{{extractRegex \"state\\\":\\\"(\\\\d+)\" ._body | set \"qr_ret\"}}",
+                "{{add \"checkQrcodeTimes\" 1}}",
+                "{{add \"check_times\" 1}}"
+            ],
+            "response_timeout": 10,
+            "visit_times": 5,
+            "goto_times": 250,
+            "output_filename": "qrcode_login_check.json",
+            "actions": [
+                {
+                    "condition": "{{eq .qr_ret \"2\"}}",
+                    "goto": "login_success"
+                },
+                {
+                    "condition": "{{gt .check_times 80}}",
+                    "message":{
+                        "status": "fail",
+                        "data": "尝试超时"
+                    }
+                },
+                {
+                    "condition": "{{or (empty \"qr_ret\") (eq .qr_ret \"3\")}}",
+                    "goto": "generateQRCode"
+                },
+                {
+                    "condition": "{{or (eq .qr_ret \"0\") (eq .qr_ret \"1\") }}",
+                    "goto": "checkQrScan"
+                },
+                {
+                    "condition": "{{eq 1 1}}",
+                    "goto": "checkQrScan"
+                }
+            ],
+            "sleep": 3
+        },
+        {
+            "tag": "login_success",
+            "condition": "{{eq .qr_ret \"2\"}}",
+            "page": "http://sop.suning.com/sel/login/logon.action",
+            "method": "GET",
+            "header": {
+                "Host": "sop.suning.com"
+            },
+            "response_timeout": 20,
+            "visit_times": 3,
+            "qrcode_success": true,
+            "output_filename": "index.html",
+            "context_opers": [
+                "{{extractHtml \"title\" ._body | contains \"供应商\" | set \"is_supply_account\"}}"
+            ],
+            "actions": [
+                {
+                     "condition": "{{.is_supply_account}}",
+                     "message": {
+                         "status": "fail",
+                         "data": "抱歉，供应商类型账户暂时不支持"
+                     }
+                 }
+             ]
+        },
+        {
+            "require": {
+                "file": "suning.json",
+                "from": "http://sop.suning.com/sel/tradeCenter/moduleContent/showShopSnap.action"
+            }
+        }
+    ]
+}

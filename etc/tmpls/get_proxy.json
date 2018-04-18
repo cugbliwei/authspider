@@ -1,0 +1,457 @@
+{
+    "disable_output_folder": true,
+    "disable_outpubkey": true,
+    "steps": [
+        {
+            "page": "http://www.kuaidaili.com/",
+            "method": "GET",
+            "response_timeout": 60,
+            "visit_times": 3
+        },
+        {
+            "page": "http://www.kuaidaili.com/ops/proxylist/1",
+            "method": "GET",
+            "header": {
+                "Host": "www.kuaidaili.com",
+                "Referer": "http://www.kuaidaili.com/",
+                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.84 Safari/537.36"
+            },
+            "response_timeout": 60,
+            "visit_times": 3,
+            "doc_type": "html",
+            "extractor_new": true,
+            "extractor": {
+                "proxy": {
+                    "_root": "#freelist tbody tr",
+                    "_array": true,
+                    "ip": "td @index=0",
+                    "port": "td @index=1"
+                }
+            }
+        },
+        {
+            "page": "http://www.kuaidaili.com/ops/proxylist/2",
+            "method": "GET",
+            "header": {
+                "Host": "www.kuaidaili.com",
+                "Referer": "http://www.kuaidaili.com/",
+                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.84 Safari/537.36"
+            },
+            "response_timeout": 60,
+            "visit_times": 3,
+            "doc_type": "html",
+            "extractor_new": true,
+            "extractor": {
+                "proxy": {
+                    "_root": "#freelist tbody tr",
+                    "_array": true,
+                    "ip": "td @index=0",
+                    "port": "td @index=1"
+                }
+            }
+        },
+        {
+            "page": "http://www.xicidaili.com/nn/",
+            "method": "GET",
+            "response_timeout": 60,
+            "visit_times": 3,
+            "doc_type": "html",
+            "extractor_new": true,
+            "extractor": {
+                "proxy": {
+                    "_root": "tbody tr @slice=1:0",
+                    "_array": true,
+                    "ip": "td @index=1",
+                    "port": "td @index=2"
+                }
+            }
+        },
+        {
+            "page": "http://www.xicidaili.com/nt/",
+            "method": "GET",
+            "response_timeout": 60,
+            "visit_times": 3,
+            "doc_type": "html",
+            "extractor_new": true,
+            "extractor": {
+                "proxy": {
+                    "_root": "tbody tr @slice=1:0",
+                    "_array": true,
+                    "ip": "td @index=1",
+                    "port": "td @index=2"
+                }
+            }
+        },
+        {
+            "page": "http://www.xicidaili.com/wn/",
+            "method": "GET",
+            "response_timeout": 60,
+            "visit_times": 3,
+            "doc_type": "html",
+            "extractor_new": true,
+            "extractor": {
+                "proxy": {
+                    "_root": "tbody tr @slice=1:0",
+                    "_array": true,
+                    "ip": "td @index=1",
+                    "port": "td @index=2"
+                }
+            }
+        },
+        {
+            "page": "http://www.xicidaili.com/wt/",
+            "method": "GET",
+            "response_timeout": 60,
+            "visit_times": 3,
+            "doc_type": "html",
+            "extractor_new": true,
+            "extractor": {
+                "proxy": {
+                    "_root": "tbody tr @slice=1:0",
+                    "_array": true,
+                    "ip": "td @index=1",
+                    "port": "td @index=2"
+                }
+            }
+        },
+        {
+            "page": "http://www.kuaidaili.com/free/inha/",
+            "method": "GET",
+            "header": {
+                "Host": "www.kuaidaili.com",
+                "Referer": "http://www.kuaidaili.com/",
+                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.84 Safari/537.36"
+            },
+            "response_timeout": 60,
+            "visit_times": 3,
+            "doc_type": "html",
+            "extractor_new": true,
+            "extractor": {
+                "proxy": {
+                    "_root": "tbody tr",
+                    "_array": true,
+                    "ip": "td @index=0",
+                    "port": "td @index=1"
+                }
+            }
+        },
+        {
+            "page": "http://ip.baizhongsou.com/",
+            "method": "GET",
+            "response_timeout": 60,
+            "visit_times": 3,
+            "doc_type": "html",
+            "extractor_new": true,
+            "extractor": {
+                "host": {
+                    "_root": "tbody tr @slice=1:0",
+                    "_array": true,
+                    "host": "td @index=0"
+                }
+            }
+        },
+        {
+            "page": "http://www.data5u.com/free/index.shtml",
+            "method": "GET",
+            "response_timeout": 60,
+            "visit_times": 3,
+            "doc_type": "html",
+            "extractor_new": true,
+            "extractor": {
+                "proxy": {
+                    "_root": ".l2",
+                    "_array": true,
+                    "ip": "span @index=0",
+                    "port": "span @index=1"
+                }
+            }
+        },
+        {
+            "page": "http://www.data5u.com/free/gngn/index.shtml",
+            "method": "GET",
+            "response_timeout": 60,
+            "visit_times": 3,
+            "doc_type": "html",
+            "extractor_new": true,
+            "extractor": {
+                "proxy": {
+                    "_root": ".l2",
+                    "_array": true,
+                    "ip": "span @index=0",
+                    "port": "span @index=1"
+                }
+            }
+        },
+        {
+            "page": "http://www.data5u.com/free/gnpt/index.shtml",
+            "method": "GET",
+            "response_timeout": 60,
+            "visit_times": 3,
+            "doc_type": "html",
+            "extractor_new": true,
+            "extractor": {
+                "proxy": {
+                    "_root": ".l2",
+                    "_array": true,
+                    "ip": "span @index=0",
+                    "port": "span @index=1"
+                }
+            }
+        },
+        {
+            "page": "http://www.data5u.com/free/gwgn/index.shtml",
+            "method": "GET",
+            "response_timeout": 60,
+            "visit_times": 3,
+            "doc_type": "html",
+            "extractor_new": true,
+            "extractor": {
+                "proxy": {
+                    "_root": ".l2",
+                    "_array": true,
+                    "ip": "span @index=0",
+                    "port": "span @index=1"
+                }
+            }
+        },
+        {
+            "page": "http://www.data5u.com/free/gwpt/index.shtml",
+            "method": "GET",
+            "response_timeout": 60,
+            "visit_times": 3,
+            "doc_type": "html",
+            "extractor_new": true,
+            "extractor": {
+                "proxy": {
+                    "_root": ".l2",
+                    "_array": true,
+                    "ip": "span @index=0",
+                    "port": "span @index=1"
+                }
+            }
+        },
+        {
+            "page": "http://www.89ip.cn/tiqv.php?sxb=&tqsl=200&ports=&ktip=&xl=on&submit=%CC%E1++%C8%A1",
+            "method": "GET",
+            "response_timeout": 60,
+            "visit_times": 3,
+            "doc_type": "html",
+            "extractor_new": true,
+            "extractor": {
+                "hosts1": ":this&attr=html&regex=@multi ([\\d]+\\.[\\d]+\\.[\\d]+\\.[\\d]+:[\\d]+)"
+            }
+        },
+        {
+            "page": "http://ip.zdaye.com/dayProxy.html",
+            "header": {
+                "Host": "ip.zdaye.com",
+                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.84 Safari/537.36"
+            },
+            "method": "GET",
+            "response_timeout": 60,
+            "visit_times": 3,
+            "doc_type": "html",
+            "context_opers": [
+                "{{extractHtml \".col-md-12 @index=1 .table @index=0 .title a&attr=href&prefix=http://ip.zdaye.com\" ._body | set \"next_url\"}}"
+            ]
+        },
+        {
+            "condition": "{{notEmpty \"next_url\"}}",
+            "page": "{{.next_url}}",
+            "header": {
+                "Host": "ip.zdaye.com",
+                "Referer": "http://ip.zdaye.com/dayProxy.html",
+                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.84 Safari/537.36"
+            },
+            "method": "GET",
+            "response_timeout": 60,
+            "visit_times": 3,
+            "doc_type": "html",
+            "extractor_new": true,
+            "extractor": {
+                "hosts2": ":this&attr=html&regex=@multi ([\\d]+\\.[\\d]+\\.[\\d]+\\.[\\d]+:[\\d]+)"
+            }
+        },
+        {
+            "page": "http://www.ip3366.net/free/?stype=1",
+            "method": "GET",
+            "response_timeout": 60,
+            "visit_times": 3,
+            "doc_type": "html",
+            "extractor_new": true,
+            "extractor": {
+                "proxy": {
+                    "_root": "tbody tr",
+                    "_array": true,
+                    "ip": "td @index=0",
+                    "port": "td @index=1"
+                }
+            }
+        },
+        {
+            "page": "http://www.ip3366.net/free/?stype=2",
+            "method": "GET",
+            "response_timeout": 60,
+            "visit_times": 3,
+            "doc_type": "html",
+            "extractor_new": true,
+            "extractor": {
+                "proxy": {
+                    "_root": "tbody tr",
+                    "_array": true,
+                    "ip": "td @index=0",
+                    "port": "td @index=1"
+                }
+            }
+        },
+        {
+            "page": "http://www.ip3366.net/free/?stype=3",
+            "method": "GET",
+            "response_timeout": 60,
+            "visit_times": 3,
+            "doc_type": "html",
+            "extractor_new": true,
+            "extractor": {
+                "proxy": {
+                    "_root": "tbody tr",
+                    "_array": true,
+                    "ip": "td @index=0",
+                    "port": "td @index=1"
+                }
+            }
+        },
+        {
+            "page": "http://www.ip3366.net/free/?stype=4",
+            "method": "GET",
+            "response_timeout": 60,
+            "visit_times": 3,
+            "doc_type": "html",
+            "extractor_new": true,
+            "extractor": {
+                "proxy": {
+                    "_root": "tbody tr",
+                    "_array": true,
+                    "ip": "td @index=0",
+                    "port": "td @index=1"
+                }
+            }
+        },
+        {
+            "page": "http://www.httpsdaili.com/?stype=1",
+            "method": "GET",
+            "response_timeout": 60,
+            "visit_times": 3,
+            "doc_type": "html",
+            "extractor_new": true,
+            "extractor": {
+                "proxy": {
+                    "_root": "#list tbody tr",
+                    "_array": true,
+                    "ip": "td @index=0",
+                    "port": "td @index=1"
+                }
+            }
+        },
+        {
+            "page": "http://www.httpsdaili.com/?stype=2",
+            "method": "GET",
+            "response_timeout": 60,
+            "visit_times": 3,
+            "doc_type": "html",
+            "extractor_new": true,
+            "extractor": {
+                "proxy": {
+                    "_root": "#list tbody tr",
+                    "_array": true,
+                    "ip": "td @index=0",
+                    "port": "td @index=1"
+                }
+            }
+        },
+        {
+            "page": "http://www.httpsdaili.com/?stype=3",
+            "method": "GET",
+            "response_timeout": 60,
+            "visit_times": 3,
+            "doc_type": "html",
+            "extractor_new": true,
+            "extractor": {
+                "proxy": {
+                    "_root": "#list tbody tr",
+                    "_array": true,
+                    "ip": "td @index=0",
+                    "port": "td @index=1"
+                }
+            }
+        },
+        {
+            "page": "http://www.httpsdaili.com/?stype=4",
+            "method": "GET",
+            "response_timeout": 60,
+            "visit_times": 3,
+            "doc_type": "html",
+            "extractor_new": true,
+            "extractor": {
+                "proxy": {
+                    "_root": "#list tbody tr",
+                    "_array": true,
+                    "ip": "td @index=0",
+                    "port": "td @index=1"
+                }
+            }
+        },
+        {
+            "page": "http://www.kuaidaili.com/free/intr/",
+            "method": "GET",
+            "header": {
+                "Host": "www.kuaidaili.com",
+                "Referer": "http://www.kuaidaili.com/",
+                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.84 Safari/537.36"
+            },
+            "response_timeout": 60,
+            "visit_times": 3,
+            "doc_type": "html",
+            "extractor_new": true,
+            "extractor": {
+                "proxy": {
+                    "_root": "tbody tr",
+                    "_array": true,
+                    "ip": "td @index=0",
+                    "port": "td @index=1"
+                }
+            }
+        },
+        {
+            "page": "http://www.nianshao.me/",
+            "method": "GET",
+            "response_timeout": 60,
+            "visit_times": 3,
+            "doc_type": "html",
+            "extractor_new": true,
+            "extractor": {
+                "proxy": {
+                    "_root": "tbody tr",
+                    "_array": true,
+                    "ip": "td @index=0",
+                    "port": "td @index=1"
+                }
+            }
+        },
+        {
+            "page": "http://www.nianshao.me/?page=2",
+            "method": "GET",
+            "response_timeout": 60,
+            "visit_times": 3,
+            "doc_type": "html",
+            "extractor_new": true,
+            "extractor": {
+                "proxy": {
+                    "_root": "tbody tr",
+                    "_array": true,
+                    "ip": "td @index=0",
+                    "port": "td @index=1"
+                }
+            }
+        }
+    ]
+}

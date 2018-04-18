@@ -1,0 +1,363 @@
+{
+    "disable_outpubkey": true,
+    "steps": [
+        {
+            "tag":"first_step",
+            "need_param": "headers,body",
+            "context_opers": [
+				"{{set \"mark\" 0}}",
+				"{{set \"redirect_resp\" \"{\\\"content\\\":{\\\"data\\\":{\\\"appEntrance\\\":\\\"icbu\\\",\\\"miniVsts\\\":[],\\\"resultCode\\\":100,\\\"stSite\\\":4,\\\"st\\\":\\\"1WjD1qxQrlaI1r1NcveN9bQ\\\",\\\"smartlock\\\":false,\\\"task_id\\\":\\\"{{._id}}\\\"},\\\"status\\\":0,\\\"success\\\":true},\\\"hasError\\\":false}\"}}",
+				"{{set \"error_resp\" \"{\\\"content\\\":{\\\"data\\\":{\\\"resultCode\\\":100,\\\"titleMsg\\\":\\\"{{.fail_reason}}\\\"},\\\"status\\\":0,\\\"success\\\":true},\\\"hasError\\\":false}\"}}"
+            ]
+        },
+        {
+            "page": "https://passport.aliexpress.com/newlogin/login.do?fromSite=4",
+            "page_local": "http://localhost:9000/aliexpress/login",
+            "method": "POST",
+            "response_timeout": 10,
+            "visit_times": 1,
+            "doc_type": "html",
+            "header_unknown":"{{.headers}}",
+            "params_unknown":"{{.body}}",
+            "output_filename": "login_post_result.ajax",
+            "context_opers": [
+                "{{set \"body_cnt\" ._body}}",
+                "{{extractJson \"loginId\" .body | set \"username\"}}",
+                "{{extractJson \"content.data.resultCode\" ._body | set \"result_code\"}}",
+                "{{extractJson \"content.data.titleMsg\" ._body | set \"result_msg\"}}",
+                "{{extractJson \"content.data.appEntrance\" ._body | set \"app_entrance\"}}",
+                "{{extractJson \"content.data.isCheckCodeShowed\" ._body | set \"check_code_show\"}}",
+                "{{extractJson \"content.data.iframeRedirectUrl\" ._body | set \"pre_phone_verify_url\"}}",
+                "{{extractJson \"content.data.redirectUrl\" ._body | set \"havana_check_url\"}}"
+            ],
+            "actions": [
+                {
+					"condition":"{{and (notEmpty \"result_code\") (ne .result_code 100)}}",
+					"message":{
+						"status":"raw_response",
+						"data":"{{._body}}"
+					}
+				},
+				{
+					"condition":"{{notEmpty \"app_entrance\"}}",
+					"message":{
+						"status":"raw_response",
+						"data":"{{addKeyValueToJson ._body \"content,data\" \"task_id\" ._id}}"
+					}
+				},
+				{
+					"condition":"{{notEmpty \"pre_phone_verify_url\"}}",
+					"message":{
+						"status":"raw_response",
+						"data":"{{parse .redirect_resp}}"
+					},
+					"goto":"visit_pre_mobile_page"
+				},
+				{
+					"condition":"{{notEmpty \"result_msg\"}}",
+					"message":{
+						"status":"raw_response",
+						"data":"{{._body}}"
+					},
+					"opers":[
+						"{{set \"fail_reason\" .result_msg}}"
+					],
+					"goto":"failed"
+				},
+				{
+					"condition":"{{.check_code_show}}",
+					"message":{
+						"status":"raw_response",
+						"data":"{{._body}}"
+					}
+				}
+            ]
+        },
+        {
+            "condition": "{{notEmpty \"havana_check_url\"}}",
+            "page": "{{.havana_check_url}}",
+            "method": "GET",
+            "response_timeout": 10,
+            "visit_times": 2,
+            "doc_type": "html",
+            "output_filename": "havana_check_url.html"
+        },
+		{
+			"condition":"{{empty \"result_code\"}}",
+			"message":{
+				"status":"fail",
+				"data":"意外超时请重试"
+			}
+		},
+		{
+			"tag":"first_user_page",
+			"page":"https://myae.aliexpress.com/seller/index.htm",
+			"method":"GET",
+			"response_timeout": 20,
+			"visit_times": 3,
+			"output_filename":"user_index_{{.mark}}.html",
+			"context_opers":[
+				"{{extractRegex \"token: \\\"([^\\\"]+)\" ._body | set \"value_token\"}}",
+				"{{extractRegex \"validateByStStandAlone\\\\(\\\"([^\\\"]+)\" ._body | set \"value_st\"}}",
+				"{{extractRegex \"\\\\?st=([^&]+)\" ._body | set \"value_st_2\"}}"
+			],
+			"actions":[
+				{
+					"condition":"{{and (notEmpty \"value_token\") (notEmpty \"value_st\")}}",
+					"goto":"pre_validate_st"
+				},
+				{
+					"condition":"{{lt .mark 2}}",
+					"opers":[
+						"{{add \"mark\" 1}}"
+					],
+					"goto":"first_user_page"
+				}
+			]
+		},
+		{
+			"tag":"pre_validate_st",
+			"page":"https://login.aliexpress.com/validateST.htm?st={{.value_st}}&u_token={{.value_token}}",
+			"output_filename":"validate_st.js",
+			"context_opers":[
+				"{{set \"temp_body\" ._body}}",
+				"{{extractRegex \"=(.*)\" ._body | set \"json_body\"}}",
+				"{{extractJson \"xlogin_urls[0]\" .json_body | set \"verify_url\"}}"
+			]
+		},
+		{
+			"tag":"call_login.alibaba.com",
+			"condition":"{{notEmpty \"verify_url\"}}",
+			"page":"{{.verify_url}}",
+			"output_filename":"verify_alibaba.json",
+			"context_opers":[
+				"{{set \"temp_body\" ._body}}"
+			]
+		},
+		{
+			"tag":"login_start",
+			"page":"https://login.aliexpress.com/statistics/loginStart.htm?locale=en_us&startTime=1495022849084&pattern=common&pageId=65fea6e30be69bb8591c3c1c15c164ad69b18d9a38",
+			"method":"GET",
+			"doc_type":"html",
+			"output_filename":"redirect_url_1.html",
+			"context_opers":[
+				"{{set \"temp_body\" ._body}}"
+			],
+			"actions":[
+			
+			]
+		},
+		{
+			"tag":"login_again",
+			"page":"https://login.aliexpress.com",
+			"method":"GET",
+			"output_filename":"login_again.html",
+			"context_opers":[
+				"{{set \"new_domain\" \"\"}}"
+			]
+		},
+		{
+			"tag":"home_center",
+			"page":"http://myae.aliexpress.com/seller/serviceLevel/serviceLevelCenter.htm",
+			"method":"GET",
+			"response_timeout":10,
+			"visit_times":3,
+			"doc_type":"html",
+			"output_filename":"service_level.html",
+			"context_opers":[
+				"{{set \"temp\" .new_domain}}",
+				"{{set \"temp_body\" ._body}}"
+			],
+			"actions":[
+				{
+					"condition":"{{contains \"alipayValidBeforeLogin.htm\" .new_domain}}",
+					"opers":[
+						"{{set \"fail_reason\" \"账户的支付宝未认证\"}}"
+					],
+					"message":{
+						"status":"fail",
+						"data":"{{.fail_reason}}"
+					}
+				},
+				{
+					"condition":"{{true}}",
+					"goto":"prepare_login_success"
+				}
+			]
+		},
+		{
+			"tag":"visit_pre_mobile_page",
+			"condition":"{{notEmpty \"pre_phone_verify_url\"}}",
+			"page":"{{.pre_phone_verify_url}}",
+			"method":"GET",
+			"doc_type":"html",
+			"response_timeout":10,
+			"output_filename":"pre_mobile_page.html",
+			"context_opers":[
+				"{{extractRegex \"window.location.href = \\\"(.*)\\\";\" ._body | set \"real_mobile_page\"}}"
+			],
+			"actions":[
+				{
+					"condition":"{{empty \"real_mobile_page\"}}",
+					"opers":[
+						"{{set \"fail_reason\" \"意外未获取到发送验证码页面\"}}"
+					],
+					"goto":"prepare_fail_response"
+				}
+			]
+		},
+		{
+			"tag":"real_mobile_page",
+			"condition":"{{notEmpty \"real_mobile_page\"}}",
+			"page":"{{.real_mobile_page}}",
+			"context_opers":[
+				"{{extractHtml \".ui-form-text\" ._body | set \"phone_number\"}}",
+				"{{extractRegex \"url: '([^']*send_code[^']*)'\" ._body | set \"send_mobile_code_url\"}}",
+				"{{extractRegex \"htoken=(.*)\" .send_mobile_code_url | set \"htoken\"}}",
+				"{{extractRegex \"_tb_token_.*value='([^']*)'>\" ._body | set \"tb_token\"}}"
+			],
+			"actions":[
+				{
+					"condition":"{{notEmpty \"phone_number\"}}",
+					"goto":"send_mobile_code"
+				},
+				{
+					"condition":"{{eq .login_success true}}",
+					"opers":[
+						"{{set \"fail_reason\" \"系统错误：unexpected step real_mobile_page\"}}"
+					],
+					"goto":"prepare_fail_response"
+				}
+			]
+		},
+		{
+			"tag":"send_mobile_code",
+			"condition":"{{notEmpty \"send_mobile_code_url\"}}",
+			"page":"{{.send_mobile_code_url}}&type=phone&area=86&tag=86&phone={{.phone_number}}",
+			"method":"GET",
+			"doc_type":"json",
+			"output_filename":"send_mobile_code_response.html",
+			"context_opers":[
+				"{{extractJson \"content.success\" ._body | set \"is_send_success\"}}",
+				"{{set \"is_send_success_sss\" \"true\"}}",
+				"{{set \"ddd\" \"todo: pre line remove in prd\"}}"
+			],
+			"actions":[
+				{
+					"condition":"{{or (empty \"is_send_success\") (eq \"is_send_success\" \"false\")}}",
+					"opers":[
+						"{{set \"fail_reason\" \"获取手机验证码时意外失败\"}}"
+					],
+					"goto":"prepare_fail_response"
+				},
+				{
+					"condition":"{{and true (ne .is_send_success \"true\")}}",
+					"opers":[
+						"{{set \"temp_todo\" \"condition and step page should be updated\"}}",
+						"{{set \"fail_reason\" \"获取手机验证码时失败\"}}"
+					],
+					"goto":"prepare_fail_response"
+				},
+				{
+					"condition":"{{true}}",
+					"message":{
+						"status":"need_param",
+						"need_param":"password2",
+						"data":"{{.phone_number}}"
+					},
+					"goto":"send_back_password2"
+				}
+			]
+		},
+		{
+            "tag": "send_back_password2",
+            "page":"https://passport.taobao.com/iv/mini/identity_verify.htm?tag=8&htoken={{.htoken}}&appName=",
+            "need_param":"password2",
+            "method": "POST",
+            "response_timeout": 10,
+            "params":{
+                "_tb_token_":"{{.tb_token}}",
+                "action":"verify_action",
+                "event_submit_do_validate":"notNull",
+                "_fm.v._0.t":"8",
+                "_fm.v._0.h":"{{.htoken}}",
+                "_fm.v._0.ty":"8",
+                "_fm.v._0.c":"pc",
+                "_fm.v._0.p":"{{.phone_number}}",
+                "_fm.v._0.a":"86",
+                "_fm.v._0.ph":"{{.password2}}"
+            },
+            "visit_times": 1,
+            "doc_type": "html",
+            "output_filename": "send_back_password2.htm",
+            "context_opers": [
+                "{{contains \"verification code has expired\" ._body | set \"code_invalid\"}}",
+                "{{contains \"手机验证码错误\" ._body | set \"code_wrong\"}}",
+				"{{set \"tips\" \"below check if auto login needed, has a mid page, below info does not exists\"}}",
+				"{{extractRegex \"token: \\\"([^\\\"]+)\" ._body | set \"value_token\"}}",
+				"{{extractRegex \"validateByStStandAlone\\\\(\\\"([^\\\"]+)\" ._body | set \"value_st\"}}",
+				"{{extractRegex \"\\\\?st=([^&]+)\" ._body | set \"value_st_2\"}}"
+            ],
+            "actions": [
+                {
+                    "condition": "{{or (eq .code_invalid true) (eq .code_wrong true)}}",
+                    "delete_context": ["password2"],
+                    "message":{
+                        "status": "need_param",
+                        "need_param":"password2",
+                        "data": "{{if .code_invalid}}校验码失效{{end}}{{if .code_wrong}}手机验证码错误{{end}}"
+                    },
+                    "goto":"send_back_password2"
+                },
+                {
+                    "condition":"{{and (notEmpty \"value_token\") (notEmpty \"value_st\")}}",
+                    "goto":"pre_validate_st"
+                },
+                {
+					"condition":"{{false}}",
+					"opers":[
+						"{{set \"fail_reason\" \"other error condition send_back_password2\"}}"
+					],
+					"goto":"prepare_fail_response"
+                },
+                {
+					"condition":"{{true}}",
+					"goto":"first_user_page"
+                }
+            ]
+        },
+		{
+			"tag":"prepare_fail_response",
+			"message":{
+				"status":"in_crawling",
+				"data":"please submit again later"
+			}
+		},
+		{
+			"tag":"failed",
+			"message":{
+				"status":"fail",
+				"data":"{{.fail_reason}}"
+			}
+		},
+		{
+			"tag":"prepare_login_success",
+			"message":{
+				"status":"in_crawling",
+				"data":"please submit again later"
+			}
+		},
+		{
+			"tag":"loginSuccess"
+		},
+		{
+			"require": {
+				"file": "aliexpress.json",
+				"from": "https://myae.aliexpress.com/seller/index.htm"
+			}
+        },
+        {
+            "tag":"finish"
+        }
+    ]
+}

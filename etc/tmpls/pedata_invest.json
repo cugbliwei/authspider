@@ -1,0 +1,82 @@
+{
+    "disable_outpubkey": true,
+    "steps": [
+        {
+            "need_param": "link,key",
+            "actions": [
+                {
+                    "condition": "{{eq \"no_exist\" .link}}",
+                    "message":{
+                        "status": "fail",
+                        "data": "link为空"
+                    }
+                },
+                {
+                    "condition": "{{eq \"no_exist\" .key}}",
+                    "message":{
+                        "status": "fail",
+                        "data": "key为空"
+                    }
+                }
+            ],
+            "context_opers": [
+                "{{set \"username\" .link}}",
+                "{{randIntn 8 | set \"rand_index\"}}"
+            ]
+        },
+        {
+            "get_from_redis": "pedata_account_{{.rand_index}}",
+            "use_cookie": "{{._body}}"
+        },
+        {
+            "page": "{{urlEncode .link}}",
+            "method": "GET",
+            "response_timeout": 30,
+            "visit_times": 3,
+            "doc_type": "html",
+            "context_opers": [
+                "{{extractHtml \".m_xq_top h1\" ._body | set \"invest_name\"}}"
+            ],
+            "output_filename": "invest.html",
+            "extractor": {
+                "搜索词": "c:{{.key}}",
+                "投资事件链接": "c:{{.link}}",
+                "投资事件名": ".m_xq_top h1",
+                "基本信息": {
+                    "_root": ".m_xq_top",
+                    "企业名称": "p:contains('企业名称') a",
+                    "企业链接": "p:contains('企业名称') a&attr=href",
+                    "投资时间": "p:contains('投资时间')&regex=.*：([\\s\\S]*)",
+                    "地区": "p:contains('地区')&regex=地区：([\\s\\S]*)",
+                    "行业（清科）": "p:contains('行业（清科）')&regex=.*：([\\s\\S]*)",
+                    "投资金额": "p:contains('投资金额')&regex=.*：([\\s\\S]*)",
+                    "投资阶段": "p:contains('投资阶段')&regex=.*：([\\s\\S]*)",
+                    "投资轮次": "p:contains('投资轮次')&regex=.*：([\\s\\S]*)",
+                    "股权": "p:contains('股权')&regex=.*：([\\s\\S]*)"
+                },
+                "描述": ".m_xq_one h2:contains('描述') ~ p",
+                "投资方信息": {
+                    "_root": ".m_xq_one h2:contains('投资方信息') ~ div",
+                    "_array": true,
+                    "机构": ".m_xq_one_title a",
+                    "机构链接": ".m_xq_one_title a&attr=href&replace=\t:",
+                    "基金": "p:contains('基金：')&regex=.*：([\\s\\S]*)",
+                    "基金链接": "p:contains('基金：') a&attr=href",
+                    "投资人": "p:contains('投资人')&regex=.*：([\\s\\S]*)",
+                    "投资类型": "p:contains('投资类型')&regex=.*：([\\s\\S]*)",
+                    "投资金额": "p:contains('投资金额')&regex=.*：([\\s\\S]*)",
+                    "成立时间": "p:contains('成立时间')&regex=.*：([\\s\\S]*)"
+                }
+            },
+            "actions": [
+                {
+                    "condition": "{{empty \"invest_name\"}}",
+                    "message": {
+                        "status": "fail",
+                        "data": "网页内容错误"
+                    }
+                }
+            ]
+        }
+    ]
+}

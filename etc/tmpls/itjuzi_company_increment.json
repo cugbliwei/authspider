@@ -1,0 +1,255 @@
+{
+    "disable_outpubkey": true,
+    "steps": [
+        {
+            "context_opers": [
+                "{{set \"username\" \"123\"}}",
+                "{{randIntn 15 | set \"rand_index\"}}"
+            ]
+        },
+        {
+            "get_from_redis": "itjuzi_account_{{.rand_index}}",
+            "use_cookie": "{{._body}}",
+            "context_opers": [
+                "{{base64Decode ._body | set \"cookies\"}}"
+            ]
+        },
+        {
+            "tag": "all",
+            "page": "https://www.itjuzi.com/company",
+            "method": "GET",
+            "response_timeout": 10,
+            "visit_times": 3,
+            "output_filename": "company_increment.html",
+            "doc_type": "html",
+            "extractor_new": true,
+            "extractor": {
+                "公司链接": {
+                    "_root": ".list-main-icnset @index=1 li",
+                    "_array": true,
+                    "链接": ".title a @index=0&attr=href"
+                }
+            },
+            "context_opers": [
+                "{{extractRegex \"var arg1='(.*)';\" ._body | set \"arg1\"}}",
+                "{{set \"source\" \"all\"}}"
+            ],
+            "actions": [
+                {
+                    "condition": "{{notEmpty \"arg1\"}}",
+                    "goto": "hack_cookie"
+                }
+            ]
+        },
+        {
+            "tag": "foundtime",
+            "page": "https://www.itjuzi.com/company?sortby=foundtime",
+            "method": "GET",
+            "response_timeout": 10,
+            "visit_times": 3,
+            "output_filename": "company_foundtime_increment.html",
+            "doc_type": "html",
+            "extractor_new": true,
+            "extractor": {
+                "公司链接": {
+                    "_root": ".list-main-icnset @index=1 li",
+                    "_array": true,
+                    "链接": ".title a @index=0&attr=href"
+                }
+            },
+            "context_opers": [
+                "{{extractRegex \"var arg1='(.*)';\" ._body | set \"arg1\"}}",
+                "{{set \"source\" \"foundtime\"}}"
+            ],
+            "actions": [
+                {
+                    "condition": "{{notEmpty \"arg1\"}}",
+                    "goto": "hack_cookie"
+                }
+            ]
+        },
+        {
+            "tag": "listed",
+            "page": "https://www.itjuzi.com/company/listed",
+            "method": "GET",
+            "response_timeout": 10,
+            "visit_times": 3,
+            "output_filename": "company_listed_increment.html",
+            "doc_type": "html",
+            "extractor_new": true,
+            "extractor": {
+                "公司链接": {
+                    "_root": ".list-main-icnset @index=1 li",
+                    "_array": true,
+                    "链接": ".title a @index=0&attr=href"
+                }
+            },
+            "context_opers": [
+                "{{extractRegex \"var arg1='(.*)';\" ._body | set \"arg1\"}}",
+                "{{set \"source\" \"listed\"}}"
+            ],
+            "actions": [
+                {
+                    "condition": "{{notEmpty \"arg1\"}}",
+                    "goto": "hack_cookie"
+                }
+            ]
+        },
+        {
+            "tag": "listed_foundtime",
+            "page": "https://www.itjuzi.com/company/listed?sortby=foundtime",
+            "method": "GET",
+            "response_timeout": 10,
+            "visit_times": 3,
+            "output_filename": "company_listed_foundtime_increment.html",
+            "doc_type": "html",
+            "extractor_new": true,
+            "extractor": {
+                "公司链接": {
+                    "_root": ".list-main-icnset @index=1 li",
+                    "_array": true,
+                    "链接": ".title a @index=0&attr=href"
+                }
+            },
+            "context_opers": [
+                "{{extractRegex \"var arg1='(.*)';\" ._body | set \"arg1\"}}",
+                "{{set \"source\" \"listed_foundtime\"}}"
+            ],
+            "actions": [
+                {
+                    "condition": "{{notEmpty \"arg1\"}}",
+                    "goto": "hack_cookie"
+                }
+            ]
+        },
+        {
+            "tag": "foreign",
+            "page": "https://www.itjuzi.com/company/foreign",
+            "method": "GET",
+            "response_timeout": 10,
+            "visit_times": 3,
+            "output_filename": "company_foreign_increment.html",
+            "doc_type": "html",
+            "extractor_new": true,
+            "extractor": {
+                "公司链接": {
+                    "_root": ".list-main-icnset @index=1 li",
+                    "_array": true,
+                    "链接": ".title a @index=0&attr=href"
+                }
+            },
+            "context_opers": [
+                "{{extractRegex \"var arg1='(.*)';\" ._body | set \"arg1\"}}",
+                "{{set \"source\" \"foreign\"}}"
+            ],
+            "actions": [
+                {
+                    "condition": "{{notEmpty \"arg1\"}}",
+                    "goto": "hack_cookie"
+                }
+            ]
+        },
+        {
+            "tag": "foreign_foundtime",
+            "page": "https://www.itjuzi.com/company/foreign?sortby=foundtime",
+            "method": "GET",
+            "response_timeout": 10,
+            "visit_times": 3,
+            "output_filename": "company_foreign_foundtime_increment.html",
+            "doc_type": "html",
+            "extractor_new": true,
+            "extractor": {
+                "公司链接": {
+                    "_root": ".list-main-icnset @index=1 li",
+                    "_array": true,
+                    "链接": ".title a @index=0&attr=href"
+                }
+            },
+            "context_opers": [
+                "{{extractRegex \"var arg1='(.*)';\" ._body | set \"arg1\"}}",
+                "{{set \"source\" \"foreign_foundtime\"}}"
+            ],
+            "actions": [
+                {
+                    "condition": "{{notEmpty \"arg1\"}}",
+                    "goto": "hack_cookie"
+                }
+            ]
+        },
+        {
+            "tag": "listed",
+            "page": "https://www.itjuzi.com/foreign/listed",
+            "method": "GET",
+            "response_timeout": 10,
+            "visit_times": 3,
+            "output_filename": "company_foreign_listed_increment.html",
+            "doc_type": "html",
+            "extractor_new": true,
+            "extractor": {
+                "公司链接": {
+                    "_root": ".list-main-icnset @index=1 li",
+                    "_array": true,
+                    "链接": ".title a @index=0&attr=href"
+                }
+            },
+            "context_opers": [
+                "{{extractRegex \"var arg1='(.*)';\" ._body | set \"arg1\"}}",
+                "{{set \"source\" \"foreign_listed\"}}"
+            ],
+            "actions": [
+                {
+                    "condition": "{{notEmpty \"arg1\"}}",
+                    "goto": "hack_cookie"
+                }
+            ]
+        },
+        {
+            "tag": "foreign_listed_foundtime",
+            "page": "https://www.itjuzi.com/foreign/listed?sortby=foundtime",
+            "method": "GET",
+            "response_timeout": 10,
+            "visit_times": 3,
+            "output_filename": "company_foreign_listed_foundtime_increment.html",
+            "doc_type": "html",
+            "extractor_new": true,
+            "extractor": {
+                "公司链接": {
+                    "_root": ".list-main-icnset @index=1 li",
+                    "_array": true,
+                    "链接": ".title a @index=0&attr=href"
+                }
+            },
+            "context_opers": [
+                "{{extractRegex \"var arg1='(.*)';\" ._body | set \"arg1\"}}",
+                "{{set \"source\" \"foreign_listed_foundtime\"}}"
+            ],
+            "actions": [
+                {
+                    "condition": "{{notEmpty \"arg1\"}}",
+                    "goto": "hack_cookie"
+                },
+                {
+                    "condition": "{{eq 1 1}}",
+                    "goto": "finish"
+                }
+            ]
+        },
+        {
+            "require": {
+                "file": "itjuzi_cookie.json",
+                "from_tag": "hack_cookie"
+            }
+        },
+        {
+            "actions": [
+                {
+                    "condition": "{{eq 1 1}}",
+                    "goto": "{{.source}}"
+                }
+            ]
+        },
+        {
+            "tag": "finish"
+        }
+    ]
+}

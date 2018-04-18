@@ -1,0 +1,129 @@
+{
+	"disable_outpubkey": true,
+    "steps": [
+		{
+			"need_param": "shop_id,shop_type",
+            "context_opers": [
+                "{{set \"username\" .shop_id}}",
+                "{{len .shop_id | set \"len_shop_id\"}}"
+            ],
+			"actions":[
+				{
+					"condition": "{{or (containAny \"\\\"\" \"'\" .shop_id) (and (eq .shop_type \"SHOP_NAME\") (lt 50 .len_shop_id))}}",
+                    "opers": [
+                        "{{set \"username\" \"default\"}}"
+                    ],
+					"message":{
+						"status":"fail",
+						"data": "params error"
+					}
+				}
+			]
+		},
+        {
+        	"condition": "{{eq .shop_type \"SHOP_NAME\"}}",
+			"page": "http://search.jd.com/Search?keyword={{.shop_id}}&enc=utf-8&suggest=1.his.0&wq=&pvid=nf169ehi.r2byb6",
+			"method": "GET",
+            "response_timeout": 3,
+            "visit_times": 3,
+            "context_opers": [
+                "{{extractRegex \"<a href=\\\"//mall\\\\.jd\\\\.com/index-(\\\\d+)\\\\.html\\\" [^>]+>进入店铺\" ._body | set \"shop_api\"}}"
+            ],
+			"actions":[
+				{
+					"condition": "{{empty \"shop_api\"}}",
+					"message":{
+						"status":"fail",
+						"data": "Not Found Rate Url"
+					}
+				}
+			]
+		},
+		{
+			"condition": "{{eq .shop_type \"SHOP_URL\"}}",
+			"page":"{{.shop_id}}",
+			"method":"GET",
+            "response_timeout": 3,
+            "visit_times": 3,
+			"output_filename":"shopHome.html",
+            "context_opers": [
+                "{{extractRegex \"shopId = \\\"(\\\\d+)\\\";\" ._body | set \"shop_api\"}}"
+            ],
+			"actions":[
+				{
+					"condition": "{{empty \"shop_api\"}}",
+					"message":{
+						"status":"fail",
+						"data": "error SHOP_URL"
+					}
+				}
+			]
+		},
+		{
+			"condition": "{{notEmpty \"shop_id\"}}",
+			"page": "http://mall.jd.com/shopLevel-{{.shop_api}}.html",
+			"method": "GET",
+            "doc_type": "html",
+            "response_timeout": 3,
+            "visit_times": 3,
+			"output_filename": "shop.html",
+            "context_opers": [
+                "{{extractHtml \".j-shop-name\" ._body | set \"shop_name\"}}",
+                "{{set \"username\" .shop_name}}"
+            ],
+			"extractor":{
+				"shop_name": ".j-shop-name",
+				"shop_total_score": ".total-score-num",
+				"shop_total_percent": ".total-score .score-des .percent",
+				"shop_compare": ":this&attr=html&regex=class=\"total-score-view\\s*([\\w]+)\\s?\"",
+				"180天内店铺动态评分": {
+					"商品质量满意度": {
+						"_root": ".item-180:contains('商品质量满意度')",
+						"分数": ".score-180",
+						"与同行业平均水平": ".percent"
+					},
+					"服务态度满意度": {
+						"_root": ".item-180:contains('服务态度满意度')",
+						"分数": ".score-180",
+						"与同行业平均水平": ".percent"
+					},
+					"物流速度满意度": {
+						"_root": ".item-180:contains('物流速度满意度')",
+						"分数": ".score-180",
+						"与同行业平均水平": ".percent"
+					},
+					"商品描述满意度": {
+						"_root": ".item-180:contains('商品描述满意度')",
+						"分数": ".score-180",
+						"与同行业平均水平": ".percent"
+					},
+					"退换货处理满意度": {
+						"_root": ".item-180:contains('退换货处理满意度')",
+						"分数": ".score-180",
+						"与同行业平均水平": ".percent"
+					}
+				},
+				"90天内平台监控店铺服务": {
+					"售后处理时长": {
+						"_root": ".item-90:contains('售后处理时长')",
+						"本店": ".f16 @index=0",
+						"比较结果": ".result",
+						"行业平均值": ".f16 @index=1"
+					},
+					"交易纠纷率": {
+						"_root": ".item-90:contains('交易纠纷率')",
+						"本店": ".f16 @index=0",
+						"比较结果": ".result",
+						"行业平均值": ".f16 @index=1"
+					},
+					"退换货返修率": {
+						"_root": ".item-90:contains('退换货返修率')",
+						"本店": ".f16 @index=0",
+						"比较结果": ".result",
+						"行业平均值": ".f16 @index=1"
+					}
+				}
+			}
+		}
+    ]
+}

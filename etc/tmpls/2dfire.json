@@ -1,0 +1,104 @@
+{
+    "disable_outpubkey": true,
+    "disable_in_crawling": true,
+    "steps": [
+        {
+            "need_param": "username,password,number,userId"
+        },
+        {
+            "page": "https://open.2dfire.com/page/auth.html#/login?appId=53489734",
+            "method": "GET",
+            "response_timeout": 10,
+            "visit_times": 3
+        },
+        {
+            "page": "https://open.2dfire.com/shop/shopAuthAppLogin.do?_k=&entityType=0&entityCode={{.number}}&username={{.username}}&password={{toUpper .password | md5}}",
+            "method": "GET",
+            "response_timeout": 10,
+            "visit_times": 3,
+            "doc_type": "json",
+            "output_filename": "shopAuthAppLogin.json",
+            "context_opers": [
+                "{{extractJson \"success\" ._body | set \"success\"}}",
+                "{{extractJson \"message\" ._body | set \"message\"}}"
+            ],
+            "actions": [
+                {
+                    "condition": "{{eq .success \"true\"}}",
+                    "delete_context": ["success", "message"],
+                    "goto": "success"
+                },
+                {
+                    "condition": "{{eq 1 1}}",
+                    "message": {
+                        "status": "fail",
+                        "data": "{{.message}}"
+                    }
+                }
+            ]
+        },
+        {
+            "tag": "success",
+            "page": "https://open.2dfire.com/shop/shopAuthApp.do?_k=",
+            "method": "POST",
+            "params": {
+                "appId": "53489734",
+                "bindRightsId": "85,87,89,90,91,112,113,115,134,148,155,172,173,174,176"
+            },
+            "response_timeout": 10,
+            "visit_times": 3,
+            "output_filename": "shopAuthApp.json",
+            "doc_type": "json",
+            "context_opers": [
+                "{{extractJson \"success\" ._body | set \"success\"}}",
+                "{{extractJson \"message\" ._body | set \"message\"}}"
+            ],
+            "actions": [
+                {
+                    "condition": "{{eq .success \"true\"}}",
+                    "delete_context": ["success", "message"],
+                    "goto": "next_success"
+                },
+                {
+                    "condition": "{{eq 1 1}}",
+                    "message": {
+                        "status": "fail",
+                        "data": "{{.message}}"
+                    }
+                }
+            ]
+        },
+        {
+            "tag": "next_success",
+            "page": "https://open.2dfire.com/shop/shopAuthAppDetail.do?_k=&appId=53489734",
+            "method": "GET",
+            "response_timeout": 10,
+            "visit_times": 3,
+            "doc_type": "json",
+            "output_filename": "shopAuthAppDetail.html",
+            "context_opers": [
+                "{{extractJson \"success\" ._body | set \"success\"}}",
+                "{{extractJson \"message\" ._body | set \"message\"}}",
+                "{{extractJson \"model.entityId\" ._body | set \"entityId\"}}",
+                "{{extractJson \"model.newReturnURL\" ._body | set \"newReturnURL\"}}",
+                "{{extractRegex \"timestamp=([0-9]*)\" .newReturnURL | set \"timestamp\"}}",
+                "{{extractRegex \"sign=([0-9a-zA-Z]*)\" .newReturnURL | set \"sign\"}}"
+            ],
+            "actions": [
+                {
+                    "condition": "{{eq .success \"false\"}}",
+                    "message": {
+                        "status": "fail",
+                        "data": "{{.message}}"
+                    }
+                }
+            ]
+        },
+        {
+            "message": {
+                "status": "finish_fetch_data",
+                "data": "{\"userId\": \"{{.userId}}\",\"entityCode\": \"{{.number}}\",\"entityId\": \"{{.entityId}}\",\"timestamp\": \"{{.timestamp}}\",\"sign\": \"{{.sign}}\"}"
+            }
+        }
+    ]
+}

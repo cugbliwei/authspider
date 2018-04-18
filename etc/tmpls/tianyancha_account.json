@@ -1,0 +1,42 @@
+{
+    "disable_outpubkey": true,
+    "disable_output_folder": true,
+	"enable_browser": true,
+    "steps" : [
+        {
+            "need_param": "username,password",
+            "browser_steps": [
+                {
+                    "get": "http://www.tianyancha.com/login",
+                    "sleep": 100
+                },
+                {
+                    "send_keys": {
+                        ".loginmodule .contactphone": "{{.username}}"
+                    },
+                    "sleep": 100
+                },
+                {
+                    "send_keys": {
+                        ".loginmodule .contactword": "{{.password}}"
+                    },
+                    "sleep": 100
+                },
+                {
+                    "click": ".loginmodule .login_btn",
+                    "sleep": 300
+                },
+                {
+                    "send_keys": {
+                        "#live-search": "百度"
+                    },
+                    "sleep": 200
+                },
+                {
+                    "click": ".search_button",
+                    "sleep": 500
+                }
+            ]
+        }
+    ]
+}

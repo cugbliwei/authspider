@@ -1,0 +1,26 @@
+{
+    "steps": [
+        { 
+            "tag": "query",
+            "page": "http://www.baidu.com",
+            "method": "GET",
+            "goto_times": 10,
+            "actions": [
+                {
+                    "condition": "{{eq 1 1}}",
+                    "goto": "retry"
+                }
+            ]
+        },
+        {
+            "tag": "retry",
+            "goto_times": 5,
+            "actions": [
+                {
+                    "condition": "{{eq 1 1}}",
+                    "goto": "query"
+                }
+            ]
+        }
+    ]
+}

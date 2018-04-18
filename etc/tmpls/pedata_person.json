@@ -1,0 +1,68 @@
+{
+    "disable_outpubkey": true,
+    "steps": [
+        {
+            "need_param": "link,key",
+            "context_opers": [
+                "{{set \"username\" .link}}",
+                "{{randIntn 8 | set \"rand_index\"}}"
+            ]
+        },
+        {
+            "get_from_redis": "pedata_account_{{.rand_index}}",
+            "use_cookie": "{{._body}}"
+        },
+        {
+            "page": "{{urlEncode .link}}",
+            "method": "GET",
+            "response_timeout": 30,
+            "visit_times": 3,
+            "doc_type": "html",
+            "context_opers": [
+                "{{extractHtml \".m_tzr p\" ._body | set \"person_name\"}}"
+            ],
+            "output_filename": "exit.html",
+            "extractor": {
+                "搜索词": "c:{{.key}}",
+                "投资人链接": "c:{{.link}}",
+                "投资人姓名": ".m_tzr p",
+                "基本信息": {
+                    "_root": ".m_xq_top",
+                    "英文名": "p:contains('英文名')&regex=.*：([\\s\\S]*)",
+                    "性别": "p:contains('性别')&regex=.*：([\\s\\S]*)",
+                    "电话": "p:contains('电话')&regex=.*：([\\s\\S]*)",
+                    "邮箱": "p:contains('邮箱')&regex=.*：([\\s\\S]*)",
+                    "传真": "p:contains('传真')&regex=.*：([\\s\\S]*)",
+                    "邮编": "p:contains('邮编')&regex=.*：([\\s\\S]*)",
+                    "详细地址": "p:contains('即时通讯')&regex=.*：([\\s\\S]*)"
+                },
+                "描述": ".m_xq_one h2:contains('描述') ~ p",
+                "职业生涯": {
+                    "_root": ".m_xq_one h2:contains('职业生涯') ~ div",
+                    "_array": true,
+                    "开始时间": "p:contains('开始时间')&regex=.*:([\\s\\S]*)",
+                    "结束时间": "p:contains('结束时间')&regex=.*:([\\s\\S]*)",
+                    "所在公司": "p:contains('公司名称')&regex=.*:([\\s\\S]*)",
+                    "所在公司链接": "p:contains('公司名称') a&attr=href",
+                    "职位": "p:contains('职位')&regex=.*:([\\s\\S]*)"
+                },
+                "投资策略": {
+                    "_root": ".m_xq_one h2:contains('投资策略') ~ div",
+                    "行业（清科）": "p:contains('行业（清科）')&regex=.*：([\\s\\S]*)",
+                    "行业（国际）": "p:contains('行业（国际）')&regex=.*：([\\s\\S]*)",
+                    "行业（证券会）": "p:contains('行业（证券会）')&regex=.*：([\\s\\S]*)",
+                    "地区": "p:contains('地区')&regex=.*：([\\s\\S]*)"
+                }
+            },
+            "actions": [
+                {
+                    "condition": "{{empty \"person_name\"}}",
+                    "message": {
+                        "status": "fail",
+                        "data": "网页内容错误"
+                    }
+                }
+            ]
+        }
+    ]
+}

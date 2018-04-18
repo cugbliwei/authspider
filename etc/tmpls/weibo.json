@@ -1,0 +1,187 @@
+{	
+    "disable_outpubkey": true,
+    "steps": [
+        {
+            "need_param": "query,table#,hashid#",
+            "context_opers": [
+                "{{set \"username\" .query}}",
+                "{{set \"page_idx\" 1}}",
+                "{{randIntn 4 | set \"rand_index\"}}",
+                "{{md5 .query | set \"file_name\"}}"
+             ]
+        },
+        {
+            "get_from_redis": "weibo_cookie_{{.rand_index}}",
+            "use_cookie": "{{._body}}"
+        },
+        {
+            "tag": "query_page",
+            "page": "http://s.weibo.com/weibo/{{.query}}&page={{.page_idx}}",
+            "header": {
+                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.113 Safari/537.36"
+            },
+            "method": "GET",
+            "response_timeout": 30,
+            "visit_times": 3,
+            "goto_times": 100,
+            "doc_type": "html",
+            "output_filename": "weibo_{{.page_idx}}.html",
+            "context_opers": [
+                "{{set \"page_idx_tmp\" .page_idx}}",
+				"{{randIntn 2 | set \"rand_index\"}}"
+            ],
+            "actions": [
+                {
+                    "condition": "{{contains \"Service Temporarily Unavailable\" ._body}}",
+                    "goto": "query_page"
+                },
+                {
+                    "condition": "{{contains \"'islogin': 0\" ._body}}",
+                    "opers": [
+                        "{{set \"page_idx\" .page_idx_tmp}}"
+                    ],
+                    "goto": "change_cookie"
+                },
+                {
+                    "condition": "{{not (contains \"pl_weibo_direct\" ._body)}}",
+                    "opers": [
+                        "{{set \"page_idx\" .page_idx_tmp}}",
+                        "{{set \"captcha_times\" 0}}"
+                    ],
+                    "goto": "captcha"
+                },
+                {
+                    "condition": "{{lt .page_idx 2}}",
+                    "opers": [
+                        "{{add \"page_idx\" 1}}",
+						"{{set \"content_1\" ._body}}"
+                    ],
+                    "goto": "query_page"
+                },
+                {
+                    "condition": "{{gt .page_idx 1}}",
+					"opers": [
+						"{{set \"content_2\" ._body}}"
+                    ],
+                    "goto": "extract"
+                }
+            ]
+        },
+        {
+            "tag": "captcha",
+            "page": "http://s.weibo.com/ajax/pincode/pin?type=sass&ts=",
+            "header": {
+                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.113 Safari/537.36"
+            },
+            "method": "GET",
+            "response_timeout": 30,
+            "proxy_switch": true,
+            "visit_times": 3,
+            "goto_times": 100,
+            "output_filename": "captcha_{{.captcha_times}}.png",
+            "context_opers": [
+                "{{base64Encode ._body | set \"captcha_base64\"}}"
+            ],
+            "actions": [
+                {
+                    "condition": "{{empty \"captcha_base64\"}}",
+                    "opers": [
+                        "{{add \"captcha_times\" 1}}"
+                    ],
+                    "goto": "captcha"
+                },
+                {
+                    "condition": "{{gt .captcha_times 80}}",
+                    "message":{
+                        "status": "fail",
+                        "data": "图片验证码错误次数过多"
+                    }
+                },
+                {
+                    "condition": "{{empty \"_body\"}}",
+                    "opers": [
+                        "{{add \"captcha_times\" 1}}"
+                    ],
+                    "goto": "captcha"
+                }
+            ]
+        },
+        {
+            "page": "http://yisou.bdp.creditease.corp/captcha",
+            "method": "POST",
+            "params": {
+                "website": "common",
+                "img": "{{.captcha_base64}}"
+            },
+            "response_timeout": 30,
+            "visit_times": 2,
+            "context_opers": [
+                "{{set \"captcha\" ._body}}"
+            ]
+        },
+        {
+            "page": "http://s.weibo.com/ajax/pincode/verified?__rnd=",
+            "params": {
+                "secode": "{{.captcha}}",
+                "type": "sass",
+                "pageid": "weibo",
+                "_t": "0"
+            },
+            "header": {
+                "User-Agent": "Mozilla/5.0 (Macintosh, Intel Mac OS X 10_12_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/61.0.3163.100 Safari/537.36",
+                "Referer": "http://s.weibo.com/weibo/nba?topnav=1&wvr=6&b=1"
+            },
+            "method": "POST",
+            "response_timeout": 30,
+            "proxy_switch": true,
+            "visit_times": 3,
+            "goto_times": 100,
+            "output_filename": "result_{{.captcha_times}}.json",
+            "context_opers": [
+                "{{extractJson \"code\" ._body | set \"code\"}}"
+            ],
+            "actions": [
+                {
+                    "condition": "{{ne .code \"100000\"}}",
+                    "opers": [
+                        "{{add \"captcha_times\" 1}}"
+                    ],
+                    "goto": "captcha"
+                },
+                {
+                    "condition": "{{eq .code \"100000\"}}",
+                    "goto": "query_page"
+                }
+            ]			
+        },
+		{
+			"tag": "change_cookie",
+            "condition": "{{notEmpty \"page_idx\"}}",
+            "get_from_redis": "weibo_cookie_{{.rand_index}}",
+            "use_cookie": "{{._body}}",
+            "actions": [
+                {
+                    "condition": "{{eq 1 1}}",
+                    "goto": "query_page"
+                }
+            ]
+		},
+		{
+			"tag": "extract",
+			"doc_type": "html",
+			"extractor": {
+                "table": "c:{{.table}}", 
+                "hashid": "c:{{.hashid}}",
+                "search_key": "c:{{.query}}",
+                "content_1": "c:{{.content_1}}",
+                "content_2": "c:{{.content_2}}"
+            }
+		},
+		{
+            "use_python": "weibo/weibo_extract.py"
+        },
+        {
+            "tag": "finish"
+        }
+    ]
+}

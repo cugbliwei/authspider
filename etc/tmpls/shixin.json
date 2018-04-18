@@ -1,0 +1,9 @@
+{
+    "disable_output_folder": true,
+    "disable_outpubkey": true,
+    "steps": [
+        {
+            "need_param": "name,cid"
+        }
+    ]
+}

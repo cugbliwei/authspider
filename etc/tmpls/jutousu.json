@@ -1,0 +1,76 @@
+{
+    "disable_outpubkey": true,
+    "steps": [
+        {
+            "need_param": "query,total,table#,hashid#",
+            "context_opers": [
+                "{{set \"page_idx\" 1}}",
+                "{{md5 .query | set \"file_name\"}}"
+            ],
+            "doc_type": "html",
+            "extractor": {
+                "搜索词": "c:{{.query}}"
+            }
+        },
+        {    
+            "tag": "query_page",
+            "page": "http://ts.21cn.com/front/api/search/searchPostList.do?pageNo={{.page_idx}}&title={{urlQueryEscape .query}}",
+            "method": "GET",
+            "response_timeout": 30,
+            "visit_times": 1,
+            "sleep": 1,
+            "doc_type": "json",
+            "output_filename": "{{.file_name}}_{{.page_idx}}.json",
+            "context_opers": [
+                "{{set \"username\" .query}}",
+                "{{set \"page_idx_tmp\" .page_idx}}",
+                "{{extractJson \"count\" ._body | stringToInt | set \"count\"}}",
+                "{{.page_idx | mul 10 | set \"nowCount\"}}"
+            ],
+            "extractor": {
+                "table": "c:{{.table}}",
+                "hashid": "c:{{.hashid}}",
+                "内容": {
+                    "_root": "postList",
+                    "_array": true,
+                    "标题": "title",
+                    "时间": "ctime&parse={{timestampToString \"2006-01-02 15:04:05\" ._json_body}}",
+                    "链接": "id&parse={{joinString \"http://ts.21cn.com/tousu/show/id/\" ._json_body}}",
+                    "投诉人": "username",
+                    "投诉要求": "shuqiu",
+                    "投诉内容": "topic",
+                    "投诉补充": "postcom",
+                    "投诉对象": "merchantname",
+                    "阅读量": "hit",
+                    "评论": "replyCount",
+                    "涉诉金额": {
+                        "_context": [
+                            {
+                                "_key": "no",
+                                "_value": "id"
+                            }
+                        ],
+                        "_url": "http://authcrawler.yixin.com/submit?tmpl=jutousu_detail&no={{if empty \"no\"}}no_exist{{else}}{{.no}}{{end}}",
+                        "_next": "http://authcrawler.yixin.com/submit?id="
+                    }
+                }
+            },
+            "actions": [
+                {
+                    "condition": "{{eq .total \"false\"}}",
+                    "goto": "finish"
+                },
+                {
+                    "condition": "{{lt .nowCount .count}}",
+                    "opers": [
+                        "{{add \"page_idx\" 1}}"
+                    ],
+                    "goto": "query_page"
+                }
+            ]
+        },
+        {    
+            "tag": "finish"
+        }
+    ]
+}

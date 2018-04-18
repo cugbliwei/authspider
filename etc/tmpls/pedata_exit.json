@@ -1,0 +1,91 @@
+{
+    "disable_outpubkey": true,
+    "steps": [
+        {
+            "need_param": "link,key",
+            "context_opers": [
+                "{{set \"username\" .link}}",
+                "{{randIntn 8 | set \"rand_index\"}}"
+            ]
+        },
+        {
+            "get_from_redis": "pedata_account_{{.rand_index}}",
+            "use_cookie": "{{._body}}"
+        },
+        {
+            "page": "{{urlEncode .link}}",
+            "method": "GET",
+            "response_timeout": 30,
+            "visit_times": 3,
+            "doc_type": "html",
+            "context_opers": [
+                "{{extractHtml \".m_xq_top h1\" ._body | set \"exit_name\"}}"
+            ],
+            "output_filename": "exit.html",
+            "extractor": {
+                "搜索词": "c:{{.key}}",
+                "退出事件链接": "c:{{.link}}",
+                "退出事件名": ".m_xq_top h1",
+                "基本信息": {
+                    "_root": ".m_xq_top",
+                    "企业": "p:contains('企业：') a",
+                    "企业链接": "p:contains('企业：') a&attr=href",
+                    "地区": "p:contains('地区：')&regex=.*：([\\s\\S]*)",
+                    "行业": "p:contains('行业：')&regex=.*：([\\s\\S]*)",
+                    "机构": "p:contains('机构：') a",
+                    "机构链接": "p:contains('机构：') a&attr=href",
+                    "基金": "p:contains('基金：') a",
+                    "基金链接": "p:contains('基金：') a&attr=href",
+                    "退出时间": "p:contains('退出时间：')&regex=.*：([\\s\\S]*)",
+                    "退出方式": "p:contains('退出方式：')&regex=.*：([\\s\\S]*)",
+                    "交易所": "p:contains('交易所：')&regex=.*：([\\s\\S]*)",
+                    "股票代码": "p:contains('股票代码：')&regex=.*：([\\s\\S]*)"
+                },
+                "描述": ".m_xq_one h2:contains('描述') ~ p",
+                "退出回报": {
+                    "_root": ".m_xq_one h2:contains('退出回报') ~ div",
+                    "本次账面回报倍数": "p:contains('本次账面回报倍数')&regex=本次账面回报倍数：([\\s\\S]*)",
+                    "累计投资金额": "p:contains('累计投资金额')&regex=累计投资金额：([\\s\\S]*)",
+                    "内部收益率": "p:contains('内部收益率')&regex=内部收益率：([\\s\\S]*)",
+                    "首次投资时间": "p:contains('首次投资时间')&regex=首次投资时间：([\\s\\S]*)"
+                },
+                "投资事件": {
+                    "_root": ".m_xq_one h2:contains('投资事件') ~ div",
+                    "_array": true,
+                    "投资事件": ".m_xq_one_title",
+                    "机构": "p:contains('机构：') a",
+                    "机构链接": "p:contains('机构：') a&attr=href&replace=\t:",
+                    "基金": "p:contains('基金：')&regex=.*：([\\s\\S]*)",
+                    "基金链接": "p:contains('基金：') a&attr=href",
+                    "投资人": "p:contains('投资人')&regex=.*：([\\s\\S]*)",
+                    "投资时间": "p:contains('投资时间')&regex=.*：([\\s\\S]*)",
+                    "投资金额": "p:contains('投资金额')&regex=.*：([\\s\\S]*)",
+                    "所占股份": "p:contains('所占股份')&regex=.*：([\\s\\S]*)"
+                },
+                "退出事件": {
+                    "_root": ".m_xq_one h2:contains('退出事件') ~ div",
+                    "_array": true,
+                    "退出事件": ".m_xq_one_title",
+                    "机构": "p:contains('机构：') a",
+                    "机构链接": "p:contains('机构：') a&attr=href",
+                    "基金": "p:contains('基金：')&regex=.*：([\\s\\S]*)",
+                    "基金链接": "p:contains('基金：') a&attr=href",
+                    "投资人": "p:contains('投资人')&regex=.*：([\\s\\S]*)",
+                    "退出时间": "p:contains('退出时间')&regex=.*：([\\s\\S]*)",
+                    "退出方式": "p:contains('退出方式')&regex=.*：([\\s\\S]*)",
+                    "账面回报(倍数)": "p:contains('账面回报')&regex=.*：([\\s\\S]*)",
+                    "账面IRR": "p:contains('账面IRR')&regex=.*：([\\s\\S]*)"
+                }
+            },
+            "actions": [
+                {
+                    "condition": "{{empty \"exit_name\"}}",
+                    "message": {
+                        "status": "fail",
+                        "data": "网页内容错误"
+                    }
+                }
+            ]
+        }
+    ]
+}

@@ -1,0 +1,83 @@
+{
+    "disable_outpubkey": true,
+    "steps": [
+        {
+            "need_param": "link,index",
+            "context_opers": [
+                "{{randIntn 15 | set \"rand_index\"}}"
+            ]
+        },
+        {
+            "get_from_redis": "itjuzi_account_{{.rand_index}}",
+            "use_cookie": "{{._body}}"
+        },
+        {
+            "page": "{{.link}}",
+            "method": "GET",
+            "response_timeout": 10,
+            "visit_times": 3,
+            "output_filename": "investfirm.html",
+            "doc_type": "html",
+            "context_opers": [
+                "{{extractHtml \".infohead-group .pic img&attr=src\" ._body | set \"picture_url\"}}",
+                "{{extractHtml \".inner-box h1\" ._body | set \"company_name\"}}"
+            ],
+            "extractor": {
+                "机构名称": ".inner-box h1",
+                "机构链接": "c:{{.link}}",
+                "机构下标": "c:{{.index}}",
+                "机构标签": {
+                    "_root": ".infohead-group .picinfo .tag",
+                    "标签": ":this&attr=text"
+                },
+                "机构网站": ".infohead-group .picinfo .links",
+                "机构详情": ".base-info ul li @index=0",
+                "管理资本规模-主体": ".base-info ul li:contains('管理资本规模') .right span @index=0",
+                "管理资本规模-包含": ".base-info ul li:contains('管理资本规模') .right span @index=1",
+                "单个项目投资规模": ".base-info ul li:contains('单个项目投资规模') .right",
+                "投资领域": {
+                    "_root": ".base-info ul li:contains('投资领域') .right a",
+                    "领域": ":this&attr=text"
+                },
+                "投资轮次": {
+                    "_root": ".base-info ul li:contains('投资轮次') .right a",
+                    "轮次": ":this&attr=text"
+                },
+                "基金管理方": {
+                    "_root": ".base-info ul li:contains('基金管理方') .right a",
+                    "管理方": ":this&attr=text",
+                    "管理方链接": ":this&attr=href"
+                },
+                "机构成员-在职": {
+                    "_root": ".institu-member:contains('在职') .list-prodcase li",
+                    "姓名": ".right .person-name a b",
+                    "链接": ".right .person-name a&attr=href",
+                    "角色": ".right .person-name a .c-gray",
+                    "简介": ".right .person-intro"
+                },
+                "机构成员-离职": {
+                    "_root": ".institu-member:contains('离职') .list-prodcase li",
+                    "姓名": ".right .person-name a b",
+                    "链接": ".right .person-name a&attr=href",
+                    "角色": ".right .person-name a .c-gray",
+                    "简介": ".right .person-intro"
+                },
+                "退出案例": {
+                    "_root": ".logo-wall a",
+                    "_array": true,
+                    "机构": "h1",
+                    "退出事件": "p"
+                }
+            },
+            "actions": [
+                {
+                    "condition": "{{empty \"company_name\"}}",
+                    "message": {
+                        "status": "fail",
+                        "data": "抓取失败"
+                    }
+                }
+            ]
+        }
+    ]
+}

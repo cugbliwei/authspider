@@ -1,0 +1,47 @@
+{
+    "disable_outpubkey": true,
+    "disable_in_crawling": true,
+    "steps": [
+        {
+            "context_opers": [
+                "{{add \"page_index\" 16}}"
+            ]
+        },
+        {
+            "tag": "page",
+            "context_opers": [
+                "{{add \"page_index\" 1}}"
+            ]
+        },
+        {
+            "page": "http://bj.58.com/zhuanye/pn{{.page_index}}/?key=%E6%95%99%E5%B8%88&cmcskey=%E6%95%99%E5%B8%88&final=1&jump=1&specialtype=gls",
+            "method": "GET",
+            "response_timeout": 10,
+            "visit_times": 3,
+            "doc_type": "html",
+            "extractor": {
+                "所有职位": {
+                    "_root": "#list_con .job_item",
+                    "_array": "",
+                    "职位": {
+                        "_context": [
+                            {
+                                "_key": "link",
+                                "_value": ".job_name a @index=0&attr=href"
+                            }
+                        ],
+                        "_sleep": "1000",
+                        "_url": "http://127.0.0.1:8001/submit?tmpl=58_recruit_detail&link={{if empty \"link\"}}no_exist{{else}}{{urlQueryEscape .link}}{{end}}",
+                        "_next": "http://127.0.0.1:8001/submit?id="
+                    }
+                }
+            },
+            "actions": [
+                {
+                    "condition": "{{lt .page_index 26}}",
+                    "goto": "page"
+                }
+            ]
+        }
+    ]
+}

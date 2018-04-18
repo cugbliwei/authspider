@@ -1,0 +1,80 @@
+{
+	"disable_outpubkey": true,
+	"casperjs_script": "taobaoSearch.js",
+    "steps": [
+		{
+			"need_param": "shop_url",
+			"page": "{{urlEncode .shop_url}}",
+			"method": "GET",
+			"doc_type": "json",
+			"response_timeout": 10,
+			"visit_times": 3,
+			"output_filename": "shop_search.htm",
+			"context_opers": [
+				"{{extractRegex \"g_page_config =(\\\\s*\\\\{.*);\\\\s*g_srp_load\" ._body | set \"temp1\"}}"
+			]
+		},
+		{
+			"tag": "search_via_casper_if_necessary",
+			"condition": "{{empty \"temp1\"}}",
+            "goto_times": 60,
+            "sleep": 1,
+			"context_opers": [
+				"{{readCasper | set \"temp2\"}}",
+				"{{set \"isCasperjs\" \"true\"}}"
+			],
+			"actions": [
+				{
+					"condition": "{{contains \"need_url\" .temp2}}",
+					"opers": [
+						"{{set \"tips\" \"will try to write url\"}}",
+						"{{writeCasper .shop_url}}"
+					],
+					"goto": "search_via_casper_if_necessary"
+				},
+				{
+					"condition": "{{contains \"need_path\" .temp2}}",
+					"opers": [
+						"{{writeCasper ._path}}"
+					],
+					"goto": "search_via_casper_if_necessary"
+				},
+				{
+					"condition": "{{contains \"fail#\" .temp2}}",
+					"message":{
+						"status":"fail",
+						"data": "casper访问页面失败"
+					}
+				},
+				{
+					"condition": "{{not (contains \"g_page_config\" .temp2)}}",
+					"goto": "search_via_casper_if_necessary"
+				}
+			]
+		},
+		{
+			"page": "http://authcrawler.yixin.com/health",
+			"method": "GET",
+            "doc_type": "json",
+            "response_timeout": 3,
+            "visit_times": 3,
+            "context_opers": [
+				"{{if empty \"isCasperjs\"}}{{readCasper | set \"casper_result\"}}{{end}}",
+				"{{if empty \"isCasperjs\"}}{{writeCasper \"hasFinished\"}}{{end}}",
+				"{{if notEmpty \"temp1\"}}{{set \"searchResult\" .temp1}}{{end}}",
+				"{{if empty \"temp1\"}}{{extractRegex \"g_page_config =(\\\\s*\\\\{.*);\\\\s*g_srp_load\" .temp2 | set \"searchResult\"}}{{end}}"
+            ],
+            "extractor_new": true,
+			"extractor_source": "{{.searchResult}}",
+			"extractor":{
+				"data": {
+					"_root":"mods.shoplist.data.shopItems",
+					"_array": true,
+					"shop_name": "title",
+					"wangwang": "nick",
+					"shop_url": "shopUrl"
+				}
+			}
+		}
+	]
+}

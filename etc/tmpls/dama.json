@@ -1,0 +1,64 @@
+{
+    "disable_output_folder": true,
+    "disable_outpubkey": true,
+    "steps": [
+        {
+            "need_param": "captcha",
+            "page": "http://upload.chaojiying.net/Upload/Processing.php",
+            "method": "POST",
+            "params": {
+                "user": "cugbliwei",
+                "pass": "199264uio",
+                "softid": "893249",
+                "codetype": "1006",
+                "file_base64": "{{.captcha}}"
+            },
+            "response_timeout": 30,
+            "visit_times": 2,
+            "doc_type": "json",
+            "context_opers": [
+                "{{extractJson \"pic_str\" ._body | set \"result\"}}",
+                "{{len .result | set \"len_result\"}}",
+                "{{extractJson \"pic_id\" ._body | set \"pic_id\"}}",
+                "{{extractJson \"err_str\" ._body | set \"err_str\"}}"
+            ],
+            "actions": [
+                {
+                    "condition": "{{ne .err_str \"OK\"}}",
+                    "message":{
+                        "status": "fail",
+                        "data": "打码失败"
+                    }
+                },
+                {
+                    "condition": "{{ne .len_result 6}}",
+                    "goto": "report"
+                },
+                {
+                    "condition": "{{eq .len_result 6}}",
+                    "message":{
+                        "status": "finish_fetch_data",
+                        "data": "{{.result}}"
+                    }
+                }
+            ]
+        },
+        {
+            "tag": "report",
+            "page": "http://upload.chaojiying.net/Upload/ReportError.php",
+            "method": "POST",
+            "params": {
+                "user": "cugbliwei",
+                "pass": "199264uio",
+                "softid": "893249",
+                "id": "{{.pic_id}}"
+            },
+            "response_timeout": 30,
+            "visit_times": 2,
+            "message":{
+                "status": "fail",
+                "data": "打码失败"
+            }
+        }
+    ]
+}

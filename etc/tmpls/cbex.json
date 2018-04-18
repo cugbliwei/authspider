@@ -1,0 +1,75 @@
+{
+    "disable_outpubkey": true,
+    "steps": [
+        {
+            "need_param": "number,link",
+            "get_from_redis": "cbex_{{.number}}",
+            "context_opers": [
+                "{{len ._body | set \"tmp_result_length\"}}"
+            ],
+            "actions": [
+                {
+                    "condition": "{{or (contains \"no_exist\" .number) (contains \"no_exist\" .link)}}",
+                    "message": {
+                        "status": "fail",
+                        "data": "参数错误"
+                    }
+                },
+                {
+                    "condition": "{{gt .tmp_result_length 10}}",
+                    "message": {
+                        "status": "fail",
+                        "data": "已经抓取过"
+                    }
+                }
+            ]
+        },
+        {
+            "page": "{{.link}}",
+            "method": "GET",
+            "response_timeout": 30,
+            "visit_times": 3,
+            "doc_type": "html",
+            "output_filename": "cbex.html",
+            "context_opers": [
+                "{{joinString \"cbex_\" .number | set \"tmp_key\"}}",
+                "{{writeToRedis .tmp_key .tmp_key 86400}}"
+            ],
+            "extractor": {
+                "项目概况": {
+                    "项目名称": ".tTable tbody tr:contains('项目名称') td.table_con_s",
+                    "拟募集资金金额": ".tTable tbody tr:contains('拟募集资金金额') td.table_con",
+                    "挂牌起始日期": ".tTable tbody tr:contains('信息披露起始日期') td.table_con_s",
+                    "挂牌期满日期": ".tTable tbody tr:contains('信息披露起始日期') td.table_con_m",
+                    "拟募集资金对应持股比例": ".tTable tbody tr:contains('拟募集资金对应持股比例') td.table_con",
+                    "增资后企业股权结构": "tbody tr:contains('增资后企业股权结构') td @index=1",
+                    "募集资金用途": "tbody tr:contains('募集资金用途') td @index=1"
+                },
+                "增资基本情况": {
+                    "法定代表人": "tbody tr td:contains('法定代表人') ~ td @index=0",
+                    "成立日期": "tbody tr td:contains('成立日期') ~ td @index=0",
+                    "注册资本": "tbody:contains('法定代表人') tr td:contains('注册资本') ~ td @index=0",
+                    "所属行业": ".tTable tbody tr:contains('融资方所属行业') td.table_con_m",
+                    "经营范围": "tbody tr td:contains('经营范围') ~ td @index=0",
+                    "股权结构": {
+                        "_root": "tr:contains('股东名称（前十位）') ~ tr @index=0",
+                        "_array": true,
+                        "股东名称": "td @index=0",
+                        "比例": "td @index=1"
+                    }
+                },
+                "主要财务指标": {
+                    "@key tbody tr:contains('主要财务指标') ~ tr @index=0 td @index=0": {
+                        "资产总额": "tbody tr:contains('主要财务指标') ~ tr @index=1 td @index=0",
+                        "负债总额": "tbody tr:contains('主要财务指标') ~ tr @index=1 td @index=1",
+                        "所有者权益": "tbody tr:contains('主要财务指标') ~ tr @index=1 td @index=2",
+                        "营业收入": "tbody tr:contains('主要财务指标') ~ tr @index=3 td @index=0",
+                        "净利润": "tbody tr:contains('主要财务指标') ~ tr @index=3 td @index=1"
+                    }
+                },
+                "投资人资格条件": "tbody tr:contains('投资方资格条件与增资条件') ~ tr:contains('投资方资格条件') td @index=1",
+                "保证金": "tbody tr:contains('保证金金额或比例') td @index=2"
+            }
+        }
+    ]
+}

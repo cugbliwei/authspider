@@ -1,0 +1,130 @@
+{
+    "disable_output_folder": true,
+    "disable_outpubkey": true,
+    "steps": [
+        {
+            "need_param": "username,password,index",
+            "page": "http://www.pedata.cn/",
+            "method": "GET",
+            "response_timeout": 30,
+            "visit_times": 3
+        },
+        {
+            "page": "http://www.pedata.cn/auth_do/login",
+            "method": "GET",
+            "response_timeout": 30,
+            "visit_times": 3
+        },
+        {
+            "tag": "get_randcode",
+            "page": "http://www.pedata.cn/random_do/codeImage",
+            "method": "GET",
+            "response_timeout": 30,
+            "visit_times": 3,
+            "context_opers": [
+                "{{base64Encode ._body | set \"captcha_base64\"}}",
+                "{{add \"times\" 1}}"
+            ],
+            "actions": [
+                {
+                    "condition": "{{and (empty \"captcha_base64\") (gt .times 15)}}",
+                    "opers": [
+                        "{{set \"email_body\" \"私募通登录不成功，获取图片验证码失败\"}}",
+                        "{{sendToMail \"mail.bdp.idc:25\" \"weili105@creditease.cn\" \"\" \"weili105@creditease.cn\" \"plain\" \"私募通登录失败\" .email_body}}"
+                    ],
+                    "message":{
+                        "status": "fail",
+                        "data": "获取图片验证码失败"
+                    }
+                },
+                {
+                    "condition": "{{empty \"captcha_base64\"}}",
+                    "goto": "get_randcode"
+                },
+                {
+                    "condition": "{{gt .times 15}}",
+                    "opers": [
+                        "{{set \"email_body\" \"私募通登录不成功，获取图片验证码次数过多\"}}",
+                        "{{sendToMail \"mail.bdp.idc:25\" \"weili105@creditease.cn\" \"\" \"weili105@creditease.cn\" \"plain\" \"私募通登录失败\" .email_body}}"
+                    ],
+                    "message":{
+                        "status": "fail",
+                        "data": "网络超时"
+                    }
+                }
+            ]
+        },
+        {
+            "page": "http://yisou.bdp.creditease.corp/captcha",
+            "method": "POST",
+            "params": {
+                "img": "{{.captcha_base64}}",
+                "website": "simutong"
+            },
+            "response_timeout": 30,
+            "visit_times": 3,
+            "context_opers": [
+                "{{set \"randcode\" ._body}}"
+            ],
+            "actions": [
+                {
+                    "condition": "{{empty \"randcode\"}}",
+                    "goto": "get_randcode"
+                }
+            ]
+        },
+        {
+            "page": "http://www.pedata.cn/auth_do/enter",
+            "method": "POST",
+            "params": {
+                "freelogin": "on",
+                "loginname": "{{.username}}",
+                "loginpassword": "{{.password}}",
+                "textfield": "{{.randcode}}"
+            },
+            "response_timeout": 30,
+            "visit_times": 3,
+            "context_opers": [
+                "{{extractHtml \"#error\" ._body | set \"wrong\"}}"
+            ],
+            "actions": [
+                {
+                    "condition": "{{contains \"用户被拒绝\" .wrong}}",
+                    "opers": [
+                        "{{stringToInt .index | set \"ri\"}}",
+                        "{{add \"ri\" 12}}",
+                        "{{intToString .ri | set \"rindex\"}}",
+                        "{{joinString \"第\" .rindex \"个私募通账号已被封\" | set \"email_body\"}}",
+                        "{{sendToMail \"mail.bdp.idc:25\" \"weili105@creditease.cn\" \"\" \"weili105@creditease.cn\" \"plain\" \"私募通账号被封\" .email_body}}"
+                    ],
+                    "message": {
+                        "status": "fail",
+                        "data": "访问过于频繁"
+                    }
+                },
+                {
+                    "condition": "{{contains \"验证码错误\" .wrong}}",
+                    "goto": "get_randcode"
+                }
+            ]
+        },
+        {
+            "page": "http://www.pedata.cn/",
+            "method": "GET",
+            "response_timeout": 30,
+            "visit_times": 3
+        },
+        {
+            "page": "http://www.pedata.cn/search/pedata_1_%E5%AE%9C%E4%BF%A1.html",
+            "method": "GET",
+            "response_timeout": 30,
+            "visit_times": 3
+        },
+        {
+            "context_opers": [
+                "{{base64Encode .all_cookies | set \"new_cookie\"}}"
+            ],
+            "push_to_redis": "pedata_account_{{.index}},{{.new_cookie}},3000"
+        }
+    ]
+}

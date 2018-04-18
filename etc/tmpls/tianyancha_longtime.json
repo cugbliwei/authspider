@@ -1,0 +1,1567 @@
+{
+    "disable_outpubkey": true,
+    "disable_casperjs_proxy": true,
+    "casperjs_script": "tianyancha_longtime.js",
+    "steps": [
+        {
+            "need_param": "key,username,password"
+        },
+        {
+            "tag": "read_param",
+            "context_opers": [
+                "{{readCasper | set \"casper_param\"}}"
+            ],
+            "actions": [
+                {
+                    "condition": "{{hasPrefix .casper_param \"need_path\"}}",
+                    "opers": [
+                        "{{writeCasper ._path}}"
+                    ],
+                    "goto": "read_param"
+                },
+                {
+                    "condition": "{{hasPrefix .casper_param \"need_username\"}}",
+                    "opers": [
+                        "{{joinString .username \"###\" .password | set \"login_params\"}}",
+                        "{{writeCasper .login_params}}"
+                    ],
+                    "goto": "read_param"
+                },
+                {
+                    "condition": "{{hasPrefix .casper_param \"need_key\"}}",
+                    "opers": [
+                        "{{writeCasper .key}}"
+                    ],
+                    "goto": "read_param"
+                },
+                {
+                    "condition": "{{hasPrefix .casper_param \"fail###\"}}",
+                    "opers": [
+                        "{{getCasperMsg .casper_param \"###\" | set \"fail_msg\"}}"
+                    ],
+                    "message":{
+                        "status": "fail",
+                        "data": "{{.fail_msg}}"
+                    }
+                },
+                {
+                    "condition": "{{hasPrefix .casper_param \"cookie###\"}}",
+                    "opers": [
+                        "{{getCasperMsg .casper_param \"###\" | base64Encode | set \"casper_cookies\"}}"
+                    ],
+                    "goto": "casper_login_success"
+                }
+            ]
+        },
+        {
+            "tag": "casper_login_success",
+            "use_cookie": "{{.casper_cookies}}"
+        },
+        {
+            "page": "{{joinString \"https://www.tianyancha.com/search?key=\" .key \"&checkFrom=searchBox\" | urlEncode}}",
+            "method": "GET",
+            "response_timeout": 30,
+            "visit_times": 3,
+            "doc_type": "html",
+            "output_filename": "search.html",
+            "context_opers": [
+                "{{extractHtml \"#notIe .p2\" ._body | set \"many_times\"}}",
+                "{{extractHtml \".search-multi-filter .search-multi-filter-head .subTitle @index=0\" ._body | set \"search_result\"}}",
+                "{{extractHtml \".query_name span&array=true\" ._body | set \"query_name\"}}",
+                "{{extractHtml \".query_name&attr=href&array=true\" ._body | set \"query_url\"}}",
+                "{{equalInArray .key .query_name | set \"query_index\"}}",
+                "{{extractHtml \".company_pager .total&regex=共\\\\s*([0-9]*)\\\\s*页\" ._body | stringToInt | set \"query_page_total\"}}"
+            ],
+            "extractor": {
+                "扩展搜索词": {
+                    "_root": ".query_name",
+                    "_array": true,
+                    "搜索词": "span"
+                }
+            },
+            "actions": [
+                {
+                    "condition": "{{contains \"您的访问过于频繁\" .many_times}}",
+                    "message": {
+                        "status": "fail",
+                        "data": "访问过于频繁"
+                    }
+                },
+                {
+                    "condition": "{{empty \"search_result\"}}",
+                    "message": {
+                        "status": "fail",
+                        "data": "网络错误"
+                    }
+                },
+                {
+                    "condition": "{{empty \"query_name\"}}",
+                    "message": {
+                        "status": "finish_fetch_data",
+                        "data": "{\"搜索词\": \"{{.key}}\", \"目标链接\": \"\"}"
+                    }
+                },
+                {
+                    "condition": "{{eq .query_index -1}}",
+                    "opers": [
+                        "{{set \"query_index\" 0}}"
+                    ]
+                }
+            ]
+        },
+        {
+            "page": "{{getValueFromArray .query_index .query_url}}",
+            "method": "GET",
+            "response_timeout": 30,
+            "visit_times": 3,
+            "doc_type": "html",
+            "output_filename": "company_1.html",
+            "context_opers": [
+                "{{extractHtml \".company_header_width span @index=0\" ._body | set \"company_name\"}}",
+                "{{extractHtml \"#_companyId&attr=value\" ._body | set \"companyId\"}}",
+                "{{extractHtml \".companyTitleBox55 .b-c-white img&attr=src\" ._body | set \"picture_url\"}}",
+                "{{set \"file_url\" \"\"}}",
+                "{{extractHtml \".company_pager .pagination&attr=change-type&array=true\" ._body | set \"change_type\"}}",
+                "{{extractHtml \".company_pager .pagination&attr=page-total&array=true\" ._body | set \"page_count\"}}",
+                "{{extractHtml \".company_pager .total&regex=共\\\\s*([0-9]*)\\\\s*页&array=true\" ._body | set \"page_total\"}}"
+            ],
+            "extractor_new": true,
+            "extractor": {
+                "搜索词": "c:{{.key}}",
+                "目标链接": "c:{{getValueFromArray .query_index .query_url}}",
+                "公司图片源地址": ".companyTitleBox55 .b-c-white img&attr=src",
+                "单位名称": ".company_header_width span @index=0",
+                "单位电话": ".company_header_width span:contains('电话') ~ span @index=0",
+                "单位邮箱": ".company_header_width span:contains('邮箱') ~ span @index=0",
+                "单位网址": ".company_header_width span:contains('网址') ~ a @index=0",
+                "单位地址": ".company_header_width span:contains('地址') ~ span @index=0",
+                "企业背景": {
+                    "法人信息": {
+                        "_root": ".baseInfo_model2017 .companyInfo-table @index=0 tbody tr",
+                        "_array": true,
+                        "法人姓名": "td @index=0 .human-top div.new-c3.overflow-width a",
+                        "法人姓名id": "td @index=0 .human-top div.new-c3.overflow-width a&attr=href&prefix=https://www.tianyancha.com",
+                        "企业总数": "td @index=0 .human-top p.new-c2.pt5 .new-err",
+                        "企业分布": {
+                            "_root": "td @index=0 .human-bottom .pb10.f12.lh",
+                            "_array": true,
+                            "分布情况": ":this&attr=text"
+                        },
+                        "注册资本": "td @index=1 div.new-c1.pb5:contains('注册资本') ~ div @index=0 .baseinfo-module-content-value",
+                        "注册时间": "td @index=1 div.new-c1.pb5:contains('注册时间') ~ div @index=0 .baseinfo-module-content-value",
+                        "企业状态": "td @index=1 div.new-c1.pb5:contains('企业状态') ~ div @index=0 .baseinfo-module-content-value"
+                    },
+                    "基本信息": {
+                        "_root": ".base2017 tbody",
+                        "工商注册号": "td:contains('工商注册号') span",
+                        "组织机构代码": "td:contains('组织机构代码') span",
+                        "统一信用代码": "td:contains('统一信用代码') span @index=0",
+                        "企业类型": "td:contains('企业类型') span",
+                        "纳税人识别号": "td:contains('纳税人识别号') span",
+                        "行业": "td:contains('行业') span",
+                        "营业期限": "td:contains('营业期限') span",
+                        "核准日期": "td:contains('核准日期') span",
+                        "登记机关": "td:contains('登记机关') span",
+                        "注册地址": "td:contains('注册地址') span",
+                        "经营范围": "td:contains('经营范围') span @index=2"
+                    },
+                    "主要人员": {
+                        "_root": "#_container_staff .staffinfo-module-container",
+                        "_array": true,
+                        "@key div.in-block.new-c5": "a @index=0",
+                        "id": "a @index=0&attr=href&prefix=https://www.tianyancha.com"
+                    },
+                    "股东信息": {
+                        "_root": "#_container_holder .companyInfo-table tbody tr",
+                        "_array": true,
+                        "股东": "td @index=0 a.in-block",
+                        "股东id": "td @index=0 a.in-block&attr=href&prefix=https://www.tianyancha.com",
+                        "出资比例": "td @index=1 .c-money-y",
+                        "认缴出资": "td @index=2"
+                    },
+                    "对外投资": {
+                        "_root": "#_container_invest .companyInfo-table tbody tr",
+                        "_array": true,
+                        "被投资企业名称": "td @index=0 a span",
+                        "被投资企业名称id": "td @index=0 a&attr=href&prefix=https://www.tianyancha.com",
+                        "被投资法定代表人": "td @index=1 a @index=0",
+                        "被投资法定代表人id": "td @index=1 a @index=0&attr=href&prefix=https://www.tianyancha.com",
+                        "注册资本": "td @index=2 span",
+                        "投资数额": "td @index=3 span",
+                        "投资占比": "td @index=4 span",
+                        "注册时间": "td @index=5 span",
+                        "状态": "td @index=6 span"
+                    },
+                    "变更记录": {
+                        "_root": "#_container_changeinfo .companyInfo-table tbody tr",
+                        "_array": true,
+                        "变更时间": "td @index=0",
+                        "变更项目": "td @index=1",
+                        "变更前": "td @index=2",
+                        "变更后": "td @index=3"
+                    },
+                    "分支机构": {
+                        "_root": "#_container_branch .companyInfo-table tbody tr",
+                        "_array": true,
+                        "企业名称": "td @index=0",
+                        "企业名称id": "td @index=0 a&attr=href&prefix=https://www.tianyancha.com",
+                        "法定代表人": "td @index=1",
+                        "状态": "td @index=2",
+                        "注册时间": "td @index=3"
+                    }
+                },
+                "企业发展": {
+                    "融资历史": {
+                        "_root": "#_container_rongzi .companyInfo-table tbody tr",
+                        "_array": true,
+                        "时间": "td @index=0",
+                        "轮次": "td @index=1",
+                        "估值": "td @index=2",
+                        "金额": "td @index=3",
+                        "比例": "td @index=4",
+                        "投资方": {
+                            "_root": "td @index=5 span",
+                            "_array": true,
+                            "公司": "a",
+                            "公司id": "a&attr=href&prefix=https://www.tianyancha.com"
+                        },
+                        "新闻来源": "td @index=6"
+                    },
+                    "核心团队": {
+                        "_root": "#_container_teamMember .team-item",
+                        "_array": true,
+                        "团队名称": ".team-name",
+                        "团队标题": ".team-title",
+                        "团队事件": {
+                            "_root": "ul li",
+                            "_array": true,
+                            "事件": "span"
+                        }
+                    },
+                    "企业业务": {
+                        "_root": "#_container_firmProduct .product-item",
+                        "_array": true,
+                        "产品名称": ".title",
+                        "所属行业": ".hangye",
+                        "简介": ".yeweu"
+                    },
+                    "投资事件": {
+                        "_root": "#_container_touzi .companyInfo-table tbody tr",
+                        "_array": true,
+                        "时间": "td @index=0",
+                        "轮次": "td @index=1",
+                        "金额": "td @index=2",
+                        "投资方": {
+                            "_root": "td @index=3 div",
+                            "_array": true,
+                            "公司": "a",
+                            "公司id": "a&attr=href&prefix=https://www.tianyancha.com"
+                        },
+                        "产品": "td @index=4 a",
+                        "产品id": "td @index=4 a&attr=href&prefix=https://www.tianyancha.com",
+                        "地区": "td @index=5",
+                        "行业": "td @index=6",
+                        "业务": "td @index=7"
+                    },
+                    "竞品信息": {
+                        "_root": "#_container_jingpin .companyInfo-table tbody tr",
+                        "_array": true,
+                        "产品": "td @index=0",
+                        "产品id": "td @index=0 a&attr=href",
+                        "地区": "td @index=1",
+                        "当前轮次": "td @index=2",
+                        "行业": "td @index=3",
+                        "业务": "td @index=4",
+                        "成立时间": "td @index=5",
+                        "估值": "td @index=6"
+                    }
+                },
+                "司法风险": {
+                    "法律诉讼": {
+                        "_root": "#_container_lawsuit .companyInfo-table tbody tr",
+                        "_array": true,
+                        "日期": "td @index=0",
+                        "裁判文书": "td @index=1",
+                        "裁判文书id": "td @index=1 a&attr=href&prefix=https://www.tianyancha.com",
+                        "案件类型": "td @index=2",
+                        "案件号": "td @index=3"
+                    },
+                    "法院公告": {
+                        "_root": "#_container_court .companyInfo-table tbody tr",
+                        "_array": true,
+                        "公告时间": "td @index=0",
+                        "上诉方": "td @index=1",
+                        "被诉方": "td @index=2",
+                        "公告类型": "td @index=3",
+                        "法院": "td @index=4"
+                    },
+                    "失信人": {
+                        "_root": "#nav-main-dishonest ~ div @index=0 .companyInfo-table tbody tr",
+                        "_array": true,
+                        "立案日期": "td @index=0",
+                        "案号": "td @index=1",
+                        "执行法院": "td @index=2",
+                        "履行状态": "td @index=3",
+                        "执行依据文号": "td @index=4"
+                    },
+                    "被执行人": {
+                        "_root": "#_container_zhixing .companyInfo-table tbody tr",
+                        "_array": true,
+                        "立案日期": "td @index=0",
+                        "执行标的": "td @index=1",
+                        "案号": "td @index=2",
+                        "执行法院": "td @index=3"
+                    }
+                },
+                "经营风险": {
+                    "股权出质": {
+                        "_root": "#_container_equity .companyInfo-table tbody tr",
+                        "_array": true,
+                        "公告时间": "td @index=0",
+                        "登记编号": "td @index=1",
+                        "出质人": "td @index=2",
+                        "质权人": "td @index=3",
+                        "状态": "td @index=4"
+                    },
+                    "经营异常": {
+                        "_root": "#_container_abnormal .companyInfo-table tbody tr",
+                        "_array": true,
+                        "列入日期": "td @index=0",
+                        "列入原因": "td @index=1",
+                        "决定机关": "td @index=2"
+                    },
+                    "行政处罚": {
+                        "_root": "#_container_punish .companyInfo-table tbody tr",
+                        "_array": true,
+                        "决定日期": "td @index=0",
+                        "决定书文号": "td @index=1",
+                        "类型": "td @index=2",
+                        "决定机关": "td @index=3"
+                    }
+                },
+                "经营状况": {
+                    "招投标": {
+                        "_root": "#_container_bid .companyInfo-table tbody tr",
+                        "_array": true,
+                        "发布时间": "td @index=0",
+                        "标题": "td @index=1 a",
+                        "标题id": "td @index=1 a&attr=href&prefix=https://www.tianyancha.com",
+                        "采购人": "td @index=2"
+                    },
+                    "税务评级": {
+                        "_root": "#_container_taxcredit .companyInfo-table tbody tr",
+                        "_array": true,
+                        "年份": "td @index=0",
+                        "纳税评级": "td @index=1",
+                        "类型": "td @index=2",
+                        "纳税人识别号": "td @index=3",
+                        "评价单位": "td @index=4"
+                    },
+                    "抽查检查": {
+                        "_root": "#_container_check .companyInfo-table tbody tr",
+                        "_array": true,
+                        "日期": "td @index=0",
+                        "类型": "td @index=1",
+                        "结果": "td @index=2",
+                        "检查实施机关": "td @index=3"
+                    },
+                    "产品信息": {
+                        "_root": "#_container_product .companyInfo-table tbody tr",
+                        "_array": true,
+                        "产品名称": "td @index=1",
+                        "产品简称": "td @index=2",
+                        "产品分类": "td @index=3",
+                        "领域": "td @index=4"
+                    }
+                },
+                "知识产权": {
+                    "商标信息": {
+                        "_root": "#_container_tmInfo .companyInfo-table tbody tr",
+                        "_array": true,
+                        "申请日期": "td @index=0",
+                        "商标名称": "td @index=2",
+                        "注册号": "td @index=3",
+                        "类别": "td @index=4",
+                        "状态": "td @index=5"
+                    },
+                    "专利信息": {
+                        "_root": "#_container_patent .companyInfo-table tbody tr",
+                        "_array": true,
+                        "申请公布日": "td @index=0",
+                        "专利名称": "td @index=1",
+                        "申请号": "td @index=2",
+                        "申请公布号": "td @index=3"
+                    },
+                    "著作权": {
+                        "_root": "#_container_copyright .companyInfo-table tbody tr",
+                        "_array": true,
+                        "批准日期": "td @index=0",
+                        "软件全称": "td @index=1",
+                        "软件简称": "td @index=2",
+                        "登记号": "td @index=3",
+                        "分类号": "td @index=4",
+                        "版本号": "td @index=5"
+                    },
+                    "网站备案": {
+                        "_root": "#_container_icp .companyInfo-table tbody tr",
+                        "_array": true,
+                        "审核时间": "td @index=0",
+                        "网站名称": "td @index=1",
+                        "网站首页": "td @index=2",
+                        "域名": "td @index=3",
+                        "备案号": "td @index=4",
+                        "状态": "td @index=5",
+                        "单位性质": "td @index=6"
+                    }
+                }
+            },
+            "actions": [
+                {
+                    "condition": "{{empty \"company_name\"}}",
+                    "message": {
+                        "status": "fail",
+                        "data": "网络错误"
+                    }
+                },
+                {
+                    "condition": "{{empty \"change_type\"}}",
+                    "goto": "finish_fetch"
+                }
+            ]
+        },
+        {
+            "condition": "{{notEmpty \"picture_url\"}}",
+            "page": "{{.picture_url}}",
+            "method": "GET",
+            "response_timeout": 30,
+            "visit_times": 3,
+            "context_opers": [
+                "{{base64Encode ._body | set \"picture_content\"}}"
+            ],
+            "actions": [
+                {
+                    "condition": "{{contains \"NoSuchKey\" ._body}}",
+                    "opers": [
+                        "{{set \"picture_content\" \"\"}}"
+                    ]
+                }
+            ]
+        },
+        {
+            "condition": "{{notEmpty \"picture_content\"}}",
+            "page": "http://static2.yixin.com/upload",
+            "method": "POSTFILE",
+            "params":{
+                "bucket": "public",
+                "subdir": "yisou",
+                "form_file": "file-to-upload",
+                "base64_decode": "true",
+                "file_content": "{{.picture_content}}"
+            },
+            "header": {
+                "Authorization": "Basic YmRwOmJkcEB1cGxvYWQ="
+            },
+            "response_timeout": 30,
+            "visit_times": 3,
+            "doc_type": "json",
+            "context_opers": [
+                "{{extractJson \"status\" ._body | set \"file_status\"}}",
+                "{{extractJson \"file_url\" ._body | set \"file_url\"}}"
+            ]
+        },
+        {
+            "context_opers": [
+                "{{add \"result_index\" -1}}",
+                "{{len .change_type | set \"len_result\"}}",
+                "{{add \"len_result\" -1}}"
+            ]
+        },
+        {
+            "tag": "crawl_result",
+            "context_opers": [
+                "{{add \"result_index\" 1}}",
+                "{{getValueFromArray .result_index .change_type | set \"page_name\"}}",
+                "{{getValueFromArray .result_index .page_count | stringToInt | set \"target_count\"}}",
+                "{{getValueFromArray .result_index .page_total | stringToInt | set \"target_total\"}}",
+                "{{getTianyanchaPages .target_count .target_total | set \"target_pages\"}}",
+                "{{set \"target_index\" 2}}",
+                "{{intToString .target_count | set \"target_count1\"}}",
+                "{{intToString .target_total | set \"target_total1\"}}",
+                "{{intToString .target_pages | set \"target_pages1\"}}",
+                "{{intToString .target_index | set \"target_index1\"}}"
+            ],
+            "actions": [
+                {
+                    "condition": "{{eq .target_pages -1}}",
+                    "message": {
+                        "status": "fail",
+                        "data": "计算页数失败"
+                    }
+                },
+                {
+                    "condition": "{{eq .page_name \"holder\"}}",
+                    "goto": "get_holder"
+                },
+                {
+                    "condition": "{{eq .page_name \"invest\"}}",
+                    "goto": "get_invest"
+                },
+                {
+                    "condition": "{{eq .page_name \"changeinfo\"}}",
+                    "goto": "get_changeinfo"
+                },
+                {
+                    "condition": "{{eq .page_name \"branch\"}}",
+                    "goto": "get_branch"
+                },
+                {
+                    "condition": "{{eq .page_name \"rongzi\"}}",
+                    "goto": "get_rongzi"
+                },
+                {
+                    "condition": "{{eq .page_name \"teamMember\"}}",
+                    "goto": "get_teamMember"
+                },
+                {
+                    "condition": "{{eq .page_name \"firmProduct\"}}",
+                    "goto": "get_firmProduct"
+                },
+                {
+                    "condition": "{{eq .page_name \"touzi\"}}",
+                    "goto": "get_touzi"
+                },
+                {
+                    "condition": "{{eq .page_name \"jingpin\"}}",
+                    "goto": "get_jingpin"
+                },
+                {
+                    "condition": "{{eq .page_name \"lawsuit\"}}",
+                    "goto": "get_lawsuit"
+                },
+                {
+                    "condition": "{{eq .page_name \"court\"}}",
+                    "goto": "get_court"
+                },
+                {
+                    "condition": "{{eq .page_name \"zhixing\"}}",
+                    "goto": "get_zhixing"
+                },
+                {
+                    "condition": "{{eq .page_name \"equity\"}}",
+                    "goto": "get_equity"
+                },
+                {
+                    "condition": "{{eq .page_name \"abnormal\"}}",
+                    "goto": "get_abnormal"
+                },
+                {
+                    "condition": "{{eq .page_name \"punish\"}}",
+                    "goto": "get_punish"
+                },
+                {
+                    "condition": "{{eq .page_name \"bid\"}}",
+                    "goto": "get_bid"
+                },
+                {
+                    "condition": "{{eq .page_name \"taxcredit\"}}",
+                    "goto": "get_taxcredit"
+                },
+                {
+                    "condition": "{{eq .page_name \"check\"}}",
+                    "goto": "get_check"
+                },
+                {
+                    "condition": "{{eq .page_name \"product\"}}",
+                    "goto": "get_product"
+                },
+                {
+                    "condition": "{{eq .page_name \"tmInfo\"}}",
+                    "goto": "get_tmInfo"
+                },
+                {
+                    "condition": "{{eq .page_name \"patent\"}}",
+                    "goto": "get_patent"
+                },
+                {
+                    "condition": "{{eq .page_name \"copyright\"}}",
+                    "goto": "get_copyright"
+                },
+                {
+                    "condition": "{{eq .page_name \"icp\"}}",
+                    "goto": "get_icp"
+                },
+                {
+                    "condition": "{{lt .result_index .len_result}}",
+                    "goto": "crawl_result"
+                }
+            ]
+        },
+        {
+            "tag": "get_holder",
+            "page": "https://www.tianyancha.com/pagination/{{.page_name}}.xhtml?ps={{.target_pages}}&pn={{.target_index}}&id={{.companyId}}",
+            "method": "GET",
+            "response_timeout": 30,
+            "visit_times": 3,
+            "doc_type": "html",
+            "extractor_new": true,
+            "extractor": {
+                "企业背景": {
+                    "股东信息": {
+                        "_root": ".companyInfo-table tbody tr",
+                        "_array": true,
+                        "股东": "td @index=0 a.in-block",
+                        "股东id": "td @index=0 a.in-block&attr=href&prefix=https://www.tianyancha.com",
+                        "出资比例": "td @index=1 .c-money-y",
+                        "认缴出资": "td @index=2"
+                    }
+                }
+            },
+            "actions": [
+                {
+                    "condition": "{{lt .target_index .target_total}}",
+                    "opers": [
+                        "{{add \"target_index\" 1}}"
+                    ],
+                    "goto": "get_holder"
+                },
+                {
+                    "condition": "{{lt .result_index .len_result}}",
+                    "goto": "crawl_result"
+                },
+                {
+                    "condition": "{{eq 1 1}}",
+                    "goto": "finish_fetch"
+                }
+            ]
+        },
+        {
+            "tag": "get_invest",
+            "page": "https://www.tianyancha.com/pagination/{{.page_name}}.xhtml?ps={{.target_pages}}&pn={{.target_index}}&id={{.companyId}}",
+            "method": "GET",
+            "response_timeout": 30,
+            "visit_times": 3,
+            "doc_type": "html",
+            "extractor_new": true,
+            "extractor": {
+                "企业背景": {
+                    "对外投资": {
+                        "_root": ".companyInfo-table tbody tr",
+                        "_array": true,
+                        "被投资企业名称": "td @index=0 a span",
+                        "被投资企业名称id": "td @index=0 a&attr=href&prefix=https://www.tianyancha.com",
+                        "被投资法定代表人": "td @index=1 a @index=0",
+                        "被投资法定代表人id": "td @index=1 a @index=0&attr=href&prefix=https://www.tianyancha.com",
+                        "注册资本": "td @index=2 span",
+                        "投资数额": "td @index=3 span",
+                        "投资占比": "td @index=4 span",
+                        "注册时间": "td @index=5 span",
+                        "状态": "td @index=6 span"
+                    }
+                }
+            },
+            "actions": [
+                {
+                    "condition": "{{lt .target_index .target_total}}",
+                    "opers": [
+                        "{{add \"target_index\" 1}}"
+                    ],
+                    "goto": "get_invest"
+                },
+                {
+                    "condition": "{{lt .result_index .len_result}}",
+                    "goto": "crawl_result"
+                },
+                {
+                    "condition": "{{eq 1 1}}",
+                    "goto": "finish_fetch"
+                }
+            ]
+        },
+        {
+            "tag": "get_changeinfo",
+            "page": "https://www.tianyancha.com/pagination/{{.page_name}}.xhtml?ps={{.target_pages}}&pn={{.target_index}}&id={{.companyId}}",
+            "method": "GET",
+            "response_timeout": 30,
+            "visit_times": 3,
+            "doc_type": "html",
+            "extractor_new": true,
+            "extractor": {
+                "企业背景": {
+                    "变更记录": {
+                        "_root": ".companyInfo-table tbody tr",
+                        "_array": true,
+                        "变更时间": "td @index=0",
+                        "变更项目": "td @index=1",
+                        "变更前": "td @index=2",
+                        "变更后": "td @index=3"
+                    }
+                }
+            },
+            "actions": [
+                {
+                    "condition": "{{lt .target_index .target_total}}",
+                    "opers": [
+                        "{{add \"target_index\" 1}}"
+                    ],
+                    "goto": "get_changeinfo"
+                },
+                {
+                    "condition": "{{lt .result_index .len_result}}",
+                    "goto": "crawl_result"
+                },
+                {
+                    "condition": "{{eq 1 1}}",
+                    "goto": "finish_fetch"
+                }
+            ]
+        },
+        {
+            "tag": "get_branch",
+            "page": "https://www.tianyancha.com/pagination/{{.page_name}}.xhtml?ps={{.target_pages}}&pn={{.target_index}}&id={{.companyId}}",
+            "method": "GET",
+            "response_timeout": 30,
+            "visit_times": 3,
+            "doc_type": "html",
+            "extractor_new": true,
+            "extractor": {
+                "企业背景": {
+                    "分支机构": {
+                        "_root": ".companyInfo-table tbody tr",
+                        "_array": true,
+                        "企业名称": "td @index=0",
+                        "企业名称id": "td @index=0 a&attr=href&prefix=https://www.tianyancha.com",
+                        "法定代表人": "td @index=1",
+                        "状态": "td @index=2",
+                        "注册时间": "td @index=3"
+                    }
+                }
+            },
+            "actions": [
+                {
+                    "condition": "{{lt .target_index .target_total}}",
+                    "opers": [
+                        "{{add \"target_index\" 1}}"
+                    ],
+                    "goto": "get_branch"
+                },
+                {
+                    "condition": "{{lt .result_index .len_result}}",
+                    "goto": "crawl_result"
+                },
+                {
+                    "condition": "{{eq 1 1}}",
+                    "goto": "finish_fetch"
+                }
+            ]
+        },
+        {
+            "tag": "get_rongzi",
+            "page": "{{joinString \"https://www.tianyancha.com/pagination/\" .page_name \".xhtml?ps=\" .target_pages1 \"&pn=\" .target_index1 \"&name=\" .key | urlEncode}}",
+            "method": "GET",
+            "response_timeout": 30,
+            "visit_times": 3,
+            "doc_type": "html",
+            "extractor_new": true,
+            "extractor": {
+                "企业发展": {
+                    "融资历史": {
+                        "_root": ".companyInfo-table tbody tr",
+                        "_array": true,
+                        "时间": "td @index=0",
+                        "轮次": "td @index=1",
+                        "估值": "td @index=2",
+                        "金额": "td @index=3",
+                        "比例": "td @index=4",
+                        "投资方": {
+                            "_root": "td @index=5 span",
+                            "_array": true,
+                            "公司": "a",
+                            "公司id": "a&attr=href&prefix=https://www.tianyancha.com"
+                        },
+                        "新闻来源": "td @index=6"
+                    }
+                }
+            },
+            "actions": [
+                {
+                    "condition": "{{and (lt .target_index .target_total) (lt .target_index 5)}}",
+                    "opers": [
+                        "{{add \"target_index\" 1}}",
+                        "{{intToString .target_index | set \"target_index1\"}}"
+                    ],
+                    "goto": "get_rongzi"
+                },
+                {
+                    "condition": "{{lt .result_index .len_result}}",
+                    "goto": "crawl_result"
+                },
+                {
+                    "condition": "{{eq 1 1}}",
+                    "goto": "finish_fetch"
+                }
+            ]
+        },
+        {
+            "tag": "get_teamMember",
+            "page": "{{joinString \"https://www.tianyancha.com/pagination/\" .page_name \".xhtml?ps=\" .target_pages1 \"&pn=\" .target_index1 \"&name=\" .key | urlEncode}}",
+            "method": "GET",
+            "response_timeout": 30,
+            "visit_times": 3,
+            "doc_type": "html",
+            "extractor_new": true,
+            "extractor": {
+                "企业发展": {
+                    "核心团队": {
+                        "_root": ".team-item",
+                        "_array": true,
+                        "团队名称": ".team-name",
+                        "团队标题": ".team-title",
+                        "团队事件": {
+                            "_root": "ul li",
+                            "_array": true,
+                            "事件": "span"
+                        }
+                    }
+                }
+            },
+            "actions": [
+                {
+                    "condition": "{{and (lt .target_index .target_total) (lt .target_index 5)}}",
+                    "opers": [
+                        "{{add \"target_index\" 1}}",
+                        "{{intToString .target_index | set \"target_index1\"}}"
+                    ],
+                    "goto": "get_teamMember"
+                },
+                {
+                    "condition": "{{lt .result_index .len_result}}",
+                    "goto": "crawl_result"
+                },
+                {
+                    "condition": "{{eq 1 1}}",
+                    "goto": "finish_fetch"
+                }
+            ]
+        },
+        {
+            "tag": "get_firmProduct",
+            "page": "{{joinString \"https://www.tianyancha.com/pagination/\" .page_name \".xhtml?ps=\" .target_pages1 \"&pn=\" .target_index1 \"&name=\" .key | urlEncode}}",
+            "method": "GET",
+            "response_timeout": 30,
+            "visit_times": 3,
+            "doc_type": "html",
+            "extractor_new": true,
+            "extractor": {
+                "企业发展": {
+                    "企业业务": {
+                        "_root": ".product-item",
+                        "_array": true,
+                        "产品名称": ".title",
+                        "所属行业": ".hangye",
+                        "简介": ".yeweu"
+                    }
+                }
+            },
+            "actions": [
+                {
+                    "condition": "{{and (lt .target_index .target_total) (lt .target_index 5)}}",
+                    "opers": [
+                        "{{add \"target_index\" 1}}",
+                        "{{intToString .target_index | set \"target_index1\"}}"
+                    ],
+                    "goto": "get_firmProduct"
+                },
+                {
+                    "condition": "{{lt .result_index .len_result}}",
+                    "goto": "crawl_result"
+                },
+                {
+                    "condition": "{{eq 1 1}}",
+                    "goto": "finish_fetch"
+                }
+            ]
+        },
+        {
+            "tag": "get_touzi",
+            "page": "{{joinString \"https://www.tianyancha.com/pagination/\" .page_name \".xhtml?ps=\" .target_pages1 \"&pn=\" .target_index1 \"&name=\" .key | urlEncode}}",
+            "method": "GET",
+            "response_timeout": 30,
+            "visit_times": 3,
+            "doc_type": "html",
+            "extractor_new": true,
+            "extractor": {
+                "企业发展": {
+                    "投资事件": {
+                        "_root": ".companyInfo-table tbody tr",
+                        "_array": true,
+                        "时间": "td @index=0",
+                        "轮次": "td @index=1",
+                        "金额": "td @index=2",
+                        "投资方": {
+                            "_root": "td @index=3 div",
+                            "_array": true,
+                            "公司": "a",
+                            "公司id": "a&attr=href&prefix=https://www.tianyancha.com"
+                        },
+                        "产品": "td @index=4 a",
+                        "产品id": "td @index=4 a&attr=href&prefix=https://www.tianyancha.com",
+                        "地区": "td @index=5",
+                        "行业": "td @index=6",
+                        "业务": "td @index=7"
+                    }
+                }
+            },
+            "actions": [
+                {
+                    "condition": "{{lt .target_index .target_total}}",
+                    "opers": [
+                        "{{add \"target_index\" 1}}",
+                        "{{intToString .target_index | set \"target_index1\"}}"
+                    ],
+                    "goto": "get_touzi"
+                },
+                {
+                    "condition": "{{lt .result_index .len_result}}",
+                    "goto": "crawl_result"
+                },
+                {
+                    "condition": "{{eq 1 1}}",
+                    "goto": "finish_fetch"
+                }
+            ]
+        },
+        {
+            "tag": "get_jingpin",
+            "page": "{{joinString \"https://www.tianyancha.com/pagination/\" .page_name \".xhtml?ps=\" .target_pages1 \"&pn=\" .target_index1 \"&name=\" .key | urlEncode}}",
+            "method": "GET",
+            "response_timeout": 30,
+            "visit_times": 3,
+            "doc_type": "html",
+            "extractor_new": true,
+            "extractor": {
+                "企业发展": {
+                    "竞品信息": {
+                        "_root": ".companyInfo-table tbody tr",
+                        "_array": true,
+                        "产品": "td @index=0",
+                        "产品id": "td @index=0 a&attr=href",
+                        "地区": "td @index=1",
+                        "当前轮次": "td @index=2",
+                        "行业": "td @index=3",
+                        "业务": "td @index=4",
+                        "成立时间": "td @index=5",
+                        "估值": "td @index=6"
+                    }
+                }
+            },
+            "actions": [
+                {
+                    "condition": "{{and (lt .target_index .target_total) (lt .target_index 5)}}",
+                    "opers": [
+                        "{{add \"target_index\" 1}}",
+                        "{{intToString .target_index | set \"target_index1\"}}"
+                    ],
+                    "goto": "get_jingpin"
+                },
+                {
+                    "condition": "{{lt .result_index .len_result}}",
+                    "goto": "crawl_result"
+                },
+                {
+                    "condition": "{{eq 1 1}}",
+                    "goto": "finish_fetch"
+                }
+            ]
+        },
+        {
+            "tag": "get_lawsuit",
+            "page": "{{joinString \"https://www.tianyancha.com/pagination/\" .page_name \".xhtml?ps=\" .target_pages1 \"&pn=\" .target_index1 \"&name=\" .key | urlEncode}}",
+            "method": "GET",
+            "response_timeout": 30,
+            "visit_times": 3,
+            "doc_type": "html",
+            "extractor_new": true,
+            "extractor": {
+                "司法风险": {
+                    "法律诉讼": {
+                        "_root": ".companyInfo-table tbody tr",
+                        "_array": true,
+                        "日期": "td @index=0",
+                        "裁判文书": "td @index=1",
+                        "裁判文书id": "td @index=1 a&attr=href&prefix=https://www.tianyancha.com",
+                        "案件类型": "td @index=2",
+                        "案件号": "td @index=3"
+                    }
+                }
+            },
+            "actions": [
+                {
+                    "condition": "{{and (lt .target_index .target_total) (lt .target_index 5)}}",
+                    "opers": [
+                        "{{add \"target_index\" 1}}",
+                        "{{intToString .target_index | set \"target_index1\"}}"
+                    ],
+                    "goto": "get_lawsuit"
+                },
+                {
+                    "condition": "{{lt .result_index .len_result}}",
+                    "goto": "crawl_result"
+                },
+                {
+                    "condition": "{{eq 1 1}}",
+                    "goto": "finish_fetch"
+                }
+            ]
+        },
+        {
+            "tag": "get_court",
+            "page": "{{joinString \"https://www.tianyancha.com/pagination/\" .page_name \".xhtml?ps=\" .target_pages1 \"&pn=\" .target_index1 \"&name=\" .key | urlEncode}}",
+            "method": "GET",
+            "response_timeout": 30,
+            "visit_times": 3,
+            "doc_type": "html",
+            "extractor_new": true,
+            "extractor": {
+                "司法风险": {
+                    "法院公告": {
+                        "_root": ".companyInfo-table tbody tr",
+                        "_array": true,
+                        "公告时间": "td @index=0",
+                        "上诉方": "td @index=1",
+                        "被诉方": "td @index=2",
+                        "公告类型": "td @index=3",
+                        "法院": "td @index=4"
+                    }
+                }
+            },
+            "actions": [
+                {
+                    "condition": "{{and (lt .target_index .target_total) (lt .target_index 5)}}",
+                    "opers": [
+                        "{{add \"target_index\" 1}}",
+                        "{{intToString .target_index | set \"target_index1\"}}"
+                    ],
+                    "goto": "get_court"
+                },
+                {
+                    "condition": "{{lt .result_index .len_result}}",
+                    "goto": "crawl_result"
+                },
+                {
+                    "condition": "{{eq 1 1}}",
+                    "goto": "finish_fetch"
+                }
+            ]
+        },
+        {
+            "tag": "get_zhixing",
+            "page": "https://www.tianyancha.com/pagination/{{.page_name}}.xhtml?ps={{.target_pages}}&pn={{.target_index}}&id={{.companyId}}",
+            "method": "GET",
+            "response_timeout": 30,
+            "visit_times": 3,
+            "doc_type": "html",
+            "extractor_new": true,
+            "extractor": {
+                "司法风险": {
+                    "被执行人": {
+                        "_root": ".companyInfo-table tbody tr",
+                        "_array": true,
+                        "立案日期": "td @index=0",
+                        "执行标的": "td @index=1",
+                        "案号": "td @index=2",
+                        "执行法院": "td @index=3"
+                    }
+                }
+            },
+            "actions": [
+                {
+                    "condition": "{{and (lt .target_index .target_total) (lt .target_index 5)}}",
+                    "opers": [
+                        "{{add \"target_index\" 1}}"
+                    ],
+                    "goto": "get_zhixing"
+                },
+                {
+                    "condition": "{{lt .result_index .len_result}}",
+                    "goto": "crawl_result"
+                },
+                {
+                    "condition": "{{eq 1 1}}",
+                    "goto": "finish_fetch"
+                }
+            ]
+        },
+        {
+            "tag": "get_equity",
+            "page": "{{joinString \"https://www.tianyancha.com/pagination/\" .page_name \".xhtml?ps=\" .target_pages1 \"&pn=\" .target_index1 \"&name=\" .key | urlEncode}}",
+            "method": "GET",
+            "response_timeout": 30,
+            "visit_times": 3,
+            "doc_type": "html",
+            "extractor_new": true,
+            "extractor": {
+                "经营风险": {
+                    "股权出质": {
+                        "_root": ".companyInfo-table tbody tr",
+                        "_array": true,
+                        "公告时间": "td @index=0",
+                        "登记编号": "td @index=1",
+                        "出质人": "td @index=2",
+                        "质权人": "td @index=3",
+                        "状态": "td @index=4"
+                    }
+                }
+            },
+            "actions": [
+                {
+                    "condition": "{{and (lt .target_index .target_total) (lt .target_index 5)}}",
+                    "opers": [
+                        "{{add \"target_index\" 1}}",
+                        "{{intToString .target_index | set \"target_index1\"}}"
+                    ],
+                    "goto": "get_equity"
+                },
+                {
+                    "condition": "{{lt .result_index .len_result}}",
+                    "goto": "crawl_result"
+                },
+                {
+                    "condition": "{{eq 1 1}}",
+                    "goto": "finish_fetch"
+                }
+            ]
+        },
+        {
+            "tag": "get_abnormal",
+            "page": "https://www.tianyancha.com/pagination/{{.page_name}}.xhtml?ps={{.target_pages}}&pn={{.target_index}}&id={{.companyId}}",
+            "method": "GET",
+            "response_timeout": 30,
+            "visit_times": 3,
+            "doc_type": "html",
+            "extractor_new": true,
+            "extractor": {
+                "经营风险": {
+                    "经营异常": {
+                        "_root": ".companyInfo-table tbody tr",
+                        "_array": true,
+                        "列入日期": "td @index=0",
+                        "列入原因": "td @index=1",
+                        "决定机关": "td @index=2"
+                    }
+                }
+            },
+            "actions": [
+                {
+                    "condition": "{{and (lt .target_index .target_total) (lt .target_index 5)}}",
+                    "opers": [
+                        "{{add \"target_index\" 1}}"
+                    ],
+                    "goto": "get_abnormal"
+                },
+                {
+                    "condition": "{{lt .result_index .len_result}}",
+                    "goto": "crawl_result"
+                },
+                {
+                    "condition": "{{eq 1 1}}",
+                    "goto": "finish_fetch"
+                }
+            ]
+        },
+        {
+            "tag": "get_punish",
+            "page": "{{joinString \"https://www.tianyancha.com/pagination/\" .page_name \".xhtml?ps=\" .target_pages1 \"&pn=\" .target_index1 \"&name=\" .key | urlEncode}}",
+            "method": "GET",
+            "response_timeout": 30,
+            "visit_times": 3,
+            "doc_type": "html",
+            "extractor_new": true,
+            "extractor": {
+                "经营风险": {
+                    "行政处罚": {
+                        "_root": ".companyInfo-table tbody tr",
+                        "_array": true,
+                        "决定日期": "td @index=0",
+                        "决定书文号": "td @index=1",
+                        "类型": "td @index=2",
+                        "决定机关": "td @index=3"
+                    }
+                }
+            },
+            "actions": [
+                {
+                    "condition": "{{and (lt .target_index .target_total) (lt .target_index 5)}}",
+                    "opers": [
+                        "{{add \"target_index\" 1}}",
+                        "{{intToString .target_index | set \"target_index1\"}}"
+                    ],
+                    "goto": "get_punish"
+                },
+                {
+                    "condition": "{{lt .result_index .len_result}}",
+                    "goto": "crawl_result"
+                },
+                {
+                    "condition": "{{eq 1 1}}",
+                    "goto": "finish_fetch"
+                }
+            ]
+        },
+        {
+            "tag": "get_bid",
+            "page": "https://www.tianyancha.com/pagination/{{.page_name}}.xhtml?ps={{.target_pages}}&pn={{.target_index}}&id={{.companyId}}",
+            "method": "GET",
+            "response_timeout": 30,
+            "visit_times": 3,
+            "doc_type": "html",
+            "extractor_new": true,
+            "extractor": {
+                "经营状况": {
+                    "招投标": {
+                        "_root": ".companyInfo-table tbody tr",
+                        "_array": true,
+                        "发布时间": "td @index=0",
+                        "标题": "td @index=1 a",
+                        "标题id": "td @index=1 a&attr=href&prefix=https://www.tianyancha.com",
+                        "采购人": "td @index=2"
+                    }
+                }
+            },
+            "actions": [
+                {
+                    "condition": "{{and (lt .target_index .target_total) (lt .target_index 5)}}",
+                    "opers": [
+                        "{{add \"target_index\" 1}}"
+                    ],
+                    "goto": "get_bid"
+                },
+                {
+                    "condition": "{{lt .result_index .len_result}}",
+                    "goto": "crawl_result"
+                },
+                {
+                    "condition": "{{eq 1 1}}",
+                    "goto": "finish_fetch"
+                }
+            ]
+        },
+        {
+            "tag": "get_taxcredit",
+            "page": "https://www.tianyancha.com/pagination/{{.page_name}}.xhtml?ps={{.target_pages}}&pn={{.target_index}}&id={{.companyId}}",
+            "method": "GET",
+            "response_timeout": 30,
+            "visit_times": 3,
+            "doc_type": "html",
+            "extractor_new": true,
+            "extractor": {
+                "经营状况": {
+                    "税务评级": {
+                        "_root": ".companyInfo-table tbody tr",
+                        "_array": true,
+                        "年份": "td @index=0",
+                        "纳税评级": "td @index=1",
+                        "类型": "td @index=2",
+                        "纳税人识别号": "td @index=3",
+                        "评价单位": "td @index=4"
+                    }
+                }
+            },
+            "actions": [
+                {
+                    "condition": "{{and (lt .target_index .target_total) (lt .target_index 5)}}",
+                    "opers": [
+                        "{{add \"target_index\" 1}}"
+                    ],
+                    "goto": "get_taxcredit"
+                },
+                {
+                    "condition": "{{lt .result_index .len_result}}",
+                    "goto": "crawl_result"
+                },
+                {
+                    "condition": "{{eq 1 1}}",
+                    "goto": "finish_fetch"
+                }
+            ]
+        },
+        {
+            "tag": "get_check",
+            "page": "https://www.tianyancha.com/pagination/{{.page_name}}.xhtml?ps={{.target_pages}}&pn={{.target_index}}&id={{.companyId}}",
+            "method": "GET",
+            "response_timeout": 30,
+            "visit_times": 3,
+            "doc_type": "html",
+            "extractor_new": true,
+            "extractor": {
+                "经营状况": {
+                    "抽查检查": {
+                        "_root": ".companyInfo-table tbody tr",
+                        "_array": true,
+                        "日期": "td @index=0",
+                        "类型": "td @index=1",
+                        "结果": "td @index=2",
+                        "检查实施机关": "td @index=3"
+                    }
+                }
+            },
+            "actions": [
+                {
+                    "condition": "{{and (lt .target_index .target_total) (lt .target_index 5)}}",
+                    "opers": [
+                        "{{add \"target_index\" 1}}"
+                    ],
+                    "goto": "get_check"
+                },
+                {
+                    "condition": "{{lt .result_index .len_result}}",
+                    "goto": "crawl_result"
+                },
+                {
+                    "condition": "{{eq 1 1}}",
+                    "goto": "finish_fetch"
+                }
+            ]
+        },
+        {
+            "tag": "get_product",
+            "page": "https://www.tianyancha.com/pagination/{{.page_name}}.xhtml?ps={{.target_pages}}&pn={{.target_index}}&id={{.companyId}}",
+            "method": "GET",
+            "response_timeout": 30,
+            "visit_times": 3,
+            "doc_type": "html",
+            "extractor_new": true,
+            "extractor": {
+                "经营状况": {
+                    "产品信息": {
+                        "_root": ".companyInfo-table tbody tr",
+                        "_array": true,
+                        "产品名称": "td @index=1",
+                        "产品简称": "td @index=2",
+                        "产品分类": "td @index=3",
+                        "领域": "td @index=4"
+                    }
+                }
+            },
+            "actions": [
+                {
+                    "condition": "{{and (lt .target_index .target_total) (lt .target_index 5)}}",
+                    "opers": [
+                        "{{add \"target_index\" 1}}"
+                    ],
+                    "goto": "get_product"
+                },
+                {
+                    "condition": "{{lt .result_index .len_result}}",
+                    "goto": "crawl_result"
+                },
+                {
+                    "condition": "{{eq 1 1}}",
+                    "goto": "finish_fetch"
+                }
+            ]
+        },
+        {
+            "tag": "get_tmInfo",
+            "page": "https://www.tianyancha.com/pagination/{{.page_name}}.xhtml?ps={{.target_pages}}&pn={{.target_index}}&id={{.companyId}}",
+            "method": "GET",
+            "response_timeout": 30,
+            "visit_times": 3,
+            "doc_type": "html",
+            "extractor_new": true,
+            "extractor": {
+                "知识产权": {
+                    "商标信息": {
+                        "_root": ".companyInfo-table tbody tr",
+                        "_array": true,
+                        "申请日期": "td @index=0",
+                        "商标名称": "td @index=2",
+                        "注册号": "td @index=3",
+                        "类别": "td @index=4",
+                        "状态": "td @index=5"
+                    }
+                }
+            },
+            "actions": [
+                {
+                    "condition": "{{and (lt .target_index .target_total) (lt .target_index 5)}}",
+                    "opers": [
+                        "{{add \"target_index\" 1}}"
+                    ],
+                    "goto": "get_tmInfo"
+                },
+                {
+                    "condition": "{{lt .result_index .len_result}}",
+                    "goto": "crawl_result"
+                },
+                {
+                    "condition": "{{eq 1 1}}",
+                    "goto": "finish_fetch"
+                }
+            ]
+        },
+        {
+            "tag": "get_patent",
+            "page": "https://www.tianyancha.com/pagination/{{.page_name}}.xhtml?ps={{.target_pages}}&pn={{.target_index}}&id={{.companyId}}",
+            "method": "GET",
+            "response_timeout": 30,
+            "visit_times": 3,
+            "doc_type": "html",
+            "extractor_new": true,
+            "extractor": {
+                "知识产权": {
+                    "专利信息": {
+                        "_root": ".companyInfo-table tbody tr",
+                        "_array": true,
+                        "申请公布日": "td @index=0",
+                        "专利名称": "td @index=1",
+                        "申请号": "td @index=2",
+                        "申请公布号": "td @index=3"
+                    }
+                }
+            },
+            "actions": [
+                {
+                    "condition": "{{and (lt .target_index .target_total) (lt .target_index 5)}}",
+                    "opers": [
+                        "{{add \"target_index\" 1}}"
+                    ],
+                    "goto": "get_patent"
+                },
+                {
+                    "condition": "{{lt .result_index .len_result}}",
+                    "goto": "crawl_result"
+                },
+                {
+                    "condition": "{{eq 1 1}}",
+                    "goto": "finish_fetch"
+                }
+            ]
+        },
+        {
+            "tag": "get_copyright",
+            "page": "https://www.tianyancha.com/pagination/{{.page_name}}.xhtml?ps={{.target_pages}}&pn={{.target_index}}&id={{.companyId}}",
+            "method": "GET",
+            "response_timeout": 30,
+            "visit_times": 3,
+            "doc_type": "html",
+            "extractor_new": true,
+            "extractor": {
+                "知识产权": {
+                    "著作权": {
+                        "_root": ".companyInfo-table tbody tr",
+                        "_array": true,
+                        "批准日期": "td @index=0",
+                        "软件全称": "td @index=1",
+                        "软件简称": "td @index=2",
+                        "登记号": "td @index=3",
+                        "分类号": "td @index=4",
+                        "版本号": "td @index=5"
+                    }
+                }
+            },
+            "actions": [
+                {
+                    "condition": "{{and (lt .target_index .target_total) (lt .target_index 5)}}",
+                    "opers": [
+                        "{{add \"target_index\" 1}}"
+                    ],
+                    "goto": "get_copyright"
+                },
+                {
+                    "condition": "{{lt .result_index .len_result}}",
+                    "goto": "crawl_result"
+                },
+                {
+                    "condition": "{{eq 1 1}}",
+                    "goto": "finish_fetch"
+                }
+            ]
+        },
+        {
+            "tag": "get_icp",
+            "page": "https://www.tianyancha.com/pagination/{{.page_name}}.xhtml?ps={{.target_pages}}&pn={{.target_index}}&id={{.companyId}}",
+            "method": "GET",
+            "response_timeout": 30,
+            "visit_times": 3,
+            "doc_type": "html",
+            "extractor_new": true,
+            "extractor": {
+                "知识产权": {
+                    "网站备案": {
+                        "_root": ".companyInfo-table tbody tr",
+                        "_array": true,
+                        "审核时间": "td @index=0",
+                        "网站名称": "td @index=1",
+                        "网站首页": "td @index=2",
+                        "域名": "td @index=3",
+                        "备案号": "td @index=4",
+                        "状态": "td @index=5",
+                        "单位性质": "td @index=6"
+                    }
+                }
+            },
+            "actions": [
+                {
+                    "condition": "{{and (lt .target_index .target_total) (lt .target_index 5)}}",
+                    "opers": [
+                        "{{add \"target_index\" 1}}"
+                    ],
+                    "goto": "get_icp"
+                },
+                {
+                    "condition": "{{lt .result_index .len_result}}",
+                    "goto": "crawl_result"
+                },
+                {
+                    "condition": "{{eq 1 1}}",
+                    "goto": "finish_fetch"
+                }
+            ]
+        },
+        {
+            "tag": "finish_fetch",
+            "context_opers": [
+                "{{add \"query_page_total\" 1}}",
+                "{{add \"query_page_index\" 2}}",
+                "{{intToString .query_page_index | set \"query_page_index_str\"}}"
+            ]
+        },
+        {
+            "tag": "get_query_name",
+            "condition": "{{lt .query_page_index .query_page_total}}",
+            "page": "{{joinString \"https://www.tianyancha.com/search/p\" .query_page_index_str \"?key=\" .key | urlEncode}}",
+            "method": "GET",
+            "response_timeout": 30,
+            "visit_times": 3,
+            "doc_type": "html",
+            "output_filename": "company_{{.query_page_index}}.html",
+            "extractor": {
+                "扩展搜索词": {
+                    "_root": ".query_name",
+                    "_array": true,
+                    "搜索词": "span"
+                }
+            },
+            "actions": [
+                {
+                    "condition": "{{and (lt .query_page_index .query_page_total) (lt .query_page_index 5)}}",
+                    "opers": [
+                        "{{add \"query_page_index\" 1}}",
+                        "{{intToString .query_page_index | set \"query_page_index_str\"}}"
+                    ],
+                    "goto": "get_query_name"
+                }
+            ]
+        },
+        {
+            "page": "https://www.tianyancha.com/user/userLogout.json",
+            "method": "GET",
+            "response_timeout": 60,
+            "visit_times": 3,
+            "doc_type": "json",
+            "extractor": {
+                "公司图片本地地址": "c:{{.file_url}}"
+            }
+        }
+    ]
+}

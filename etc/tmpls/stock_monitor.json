@@ -1,0 +1,202 @@
+{
+    "disable_outpubkey": true,
+    "steps": [
+        {
+            "page": "http://www.suaee.com/f/mprj/list",
+            "method": "GET",
+            "response_timeout": 30,
+            "visit_times": 3,
+            "doc_type": "html",
+            "context_opers": [
+                "{{extractHtml \"li:contains('产权项目') a @index=0&attr=href&prefix=http://www.suaee.com\" ._body | set \"property_link\"}}",
+                "{{extractHtml \"li:contains('增资项目') a @index=0&attr=href&prefix=http://www.suaee.com\" ._body | set \"capital_link\"}}"
+            ]
+        },
+        {
+            "page": "{{.property_link}}",
+            "method": "GET",
+            "response_timeout": 30,
+            "visit_times": 3,
+            "sleep": 3,
+            "doc_type": "html",
+            "output_filename": "property.html",
+            "extractor": {
+                "时间戳": "c:{{nowMillTimestamp}}",
+                "上海联合产权交易所-产权项目": {
+                    "_root": ".xmnrbg @index=1 tbody @index=2 tr",
+                    "_array": true,
+                    "项目编号": "td @index=0",
+                    "标的名称": "td @index=1",
+                    "标的链接": "td @index=1 a&attr=href&prefix=http://www.suaee.com",
+                    "挂牌价格": "td @index=2",
+                    "起始日期": "td @index=3",
+                    "详情": {
+                        "_context": [
+                            {
+                                "_key": "property_number",
+                                "_value": "td @index=0"
+                            },
+                            {
+                                "_key": "property_url",
+                                "_value": "td @index=1 a&attr=href&prefix=http://www.suaee.com"
+                            }
+                        ],
+                        "_url": "http://authcrawler.yixin.com/submit?tmpl=suaee&number={{if empty \"property_number\"}}no_exist{{else}}{{.property_number}}{{end}}&link={{if empty \"property_url\"}}no_exist{{else}}{{urlQueryEscape .property_url}}{{end}}&type=property",
+                        "_next": "http://authcrawler.yixin.com/submit?id="
+                    }
+                }
+            }
+        },
+        {
+            "page": "{{.capital_link}}",
+            "method": "GET",
+            "response_timeout": 30,
+            "visit_times": 3,
+            "sleep": 3,
+            "doc_type": "html",
+            "output_filename": "capital.html",
+            "extractor": {
+                "上海联合产权交易所-增资项目": {
+                    "_root": ".xmnrbg @index=1 tbody @index=2 tr",
+                    "_array": true,
+                    "项目编号": "td @index=0",
+                    "标的名称": "td @index=1",
+                    "标的链接": "td @index=1 a&attr=href&prefix=http://www.suaee.com",
+                    "募集金额": "td @index=2",
+                    "股权比例": "td @index=3",
+                    "起始日期": "td @index=4",
+                    "详情": {
+                        "_context": [
+                            {
+                                "_key": "capital_number",
+                                "_value": "td @index=0"
+                            },
+                            {
+                                "_key": "capital_url",
+                                "_value": "td @index=1 a&attr=href&prefix=http://www.suaee.com"
+                            }
+                        ],
+                        "_url": "http://authcrawler.yixin.com/submit?tmpl=suaee&number={{if empty \"capital_number\"}}no_exist{{else}}{{.capital_number}}{{end}}&link={{if empty \"capital_url\"}}no_exist{{else}}{{urlQueryEscape .capital_url}}{{end}}&type=capital",
+                        "_next": "http://authcrawler.yixin.com/submit?id="
+                    }
+                }
+            }
+        },
+        {
+            "page": "http://www.cbex.com.cn/ztym/zzkgb/index.shtml",
+            "method": "GET",
+            "response_timeout": 30,
+            "visit_times": 3,
+            "sleep": 3,
+            "doc_type": "html",
+            "output_filename": "cbex.html",
+            "extractor": {
+                "北京产权交易所-增资项目": {
+                    "_root": ".xmbk @index=0 tbody tr.xmnr",
+                    "_array": true,
+                    "项目编号": ".xmbt_num",
+                    "项目名称": ".xmbt_name",
+                    "项目链接": ".xmbt_name a&attr=href",
+                    "拟募集资金金额": ".xmbt_money",
+                    "持股比例": ".xmbt_bili",
+                    "所属行业": ".xmbt_hy",
+                    "披露日期": ".xmbt_add",
+                    "详情": {
+                        "_context": [
+                            {
+                                "_key": "cbex_number",
+                                "_value": ".xmbt_num"
+                            },
+                            {
+                                "_key": "cbex_url",
+                                "_value": ".xmbt_name a&attr=href"
+                            }
+                        ],
+                        "_url": "http://authcrawler.yixin.com/submit?tmpl=cbex&number={{if empty \"cbex_number\"}}no_exist{{else}}{{.cbex_number}}{{end}}&link={{if empty \"cbex_url\"}}no_exist{{else}}{{urlQueryEscape .cbex_url}}{{end}}",
+                        "_next": "http://authcrawler.yixin.com/submit?id="
+                    }
+                }
+            }
+        },
+        {
+            "page": "http://www.cnpre.com/listing/categories.php?id=21",
+            "method": "GET",
+            "response_timeout": 30,
+            "visit_times": 3,
+            "sleep": 3,
+            "doc_type": "html",
+            "output_filename": "cnpre.html",
+            "extractor": {
+                "中央产权交易所-股权项目": {
+                    "_root": ".yat",
+                    "_array": true,
+                    "项目名称": ":this&attr=text",
+                    "项目链接": ":this&attr=href&prefix=http://www.cnpre.com/listing/",
+                    "详情": {
+                        "_context": [
+                            {
+                                "_key": "cnpre_url",
+                                "_value": ":this&attr=href&prefix=http://www.cnpre.com/listing/"
+                            }
+                        ],
+                        "_url": "http://authcrawler.yixin.com/submit?tmpl=cnpre&link={{if empty \"cnpre_url\"}}no_exist{{else}}{{urlQueryEscape .cnpre_url}}{{end}}",
+                        "_next": "http://authcrawler.yixin.com/submit?id="
+                    }
+                }
+            }
+        },
+        {
+            "page": "https://www.cfae.cn/",
+            "method": "GET",
+            "response_timeout": 30,
+            "visit_times": 3
+        },
+        {
+            "page": "https://www.cfae.cn/connector/more?type=2",
+            "method": "GET",
+            "response_timeout": 30,
+            "visit_times": 3
+        },
+        {
+            "page": "https://www.cfae.cn/connector/condition",
+            "method": "POST",
+            "params": {
+                "categoryName": "jrgq",
+                "corpInd": "",
+                "title": "",
+                "title1": ""
+            },
+            "response_timeout": 30,
+            "visit_times": 3,
+            "sleep": 3,
+            "doc_type": "json",
+            "output_filename": "cfae.json",
+            "extractor": {
+                "北京金融资产交易所": {
+                    "_array": true,
+                    "项目编号": "proNo",
+                    "项目名称": "title",
+                    "项目链接": "link",
+                    "标的企业行业": "corpInd",
+                    "挂牌价格": "pubPrice",
+                    "挂牌起始日期": "pubDate",
+                    "挂牌结束日期": "endDate",
+                    "详情": {
+                        "_context": [
+                            {
+                                "_key": "cfae_number",
+                                "_value": "proNo"
+                            },
+                            {
+                                "_key": "cfae_url",
+                                "_value": "link"
+                            }
+                        ],
+                        "_url": "http://authcrawler.yixin.com/submit?tmpl=cfae&number={{if empty \"cfae_number\"}}no_exist{{else}}{{.cfae_number}}{{end}}&link={{if empty \"cfae_url\"}}no_exist{{else}}{{joinString \"https://www.cfae.cn\" .cfae_url | urlQueryEscape}}{{end}}",
+                        "_next": "http://authcrawler.yixin.com/submit?id="
+                    }
+                }
+            }
+        }
+    ]
+}

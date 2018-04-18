@@ -1,0 +1,268 @@
+{
+    "disable_outpubkey": true,
+    "steps": [
+        {
+            "need_param": "key",
+            "context_opers": [
+                "{{set \"username\" .key}}",
+                "{{urlQueryEscape .key | set \"key_encode\"}}",
+                "{{randIntn 8 | set \"rand_index\"}}"
+            ]
+        },
+        {
+            "get_from_redis": "pedata_account_{{.rand_index}}",
+            "use_cookie": "{{._body}}"
+        },
+        {
+            "page": "http://www.pedata.cn/",
+            "method": "GET",
+            "response_timeout": 30,
+            "visit_times": 3
+        },
+        {
+            "page": "{{joinString \"http://www.pedata.cn/search/org_1_\" .key_encode \".html\"}}",
+            "method": "GET",
+            "response_timeout": 30,
+            "visit_times": 3,
+            "doc_type": "html",
+            "output_filename": "search.html",
+            "context_opers": [
+                "{{extractHtml \"#divEp .new_search_jg span\" ._body | stringToInt | set \"total_ep\"}}",
+                "{{extractHtml \"#divOrg .new_search_jg span\" ._body | stringToInt | set \"total_org\"}}",
+                "{{extractHtml \"#divInvest .new_search_jg span\" ._body | stringToInt | set \"total_invest\"}}",
+                "{{extractHtml \"#divExit .new_search_jg span\" ._body | stringToInt | set \"total_exit\"}}",
+                "{{extractHtml \"#divPerson .new_search_jg span\" ._body | stringToInt | set \"total_person\"}}",
+                "{{extractHtml \"#divFund .new_search_jg span\" ._body | stringToInt | set \"total_fund\"}}",
+                "{{extractHtml \"title\" ._body | set \"need_login\"}}"
+            ],
+            "extractor_new": true,
+            "extractor": {
+                "搜索词": "c:{{.key}}"
+            },
+            "actions": [
+                {
+                    "condition": "{{contains \"登录私募通\" .need_login}}",
+                    "opers": [
+                        "{{set \"ri\" .rand_index}}",
+                        "{{add \"ri\" 12}}",
+                        "{{intToString .ri | set \"rindex\"}}",
+                        "{{joinString \"第\" .rindex \"个私募通账号未登录成功\" | set \"email_body\"}}",
+                        "{{sendToMail \"mail.bdp.idc:25\" \"weili105@creditease.cn\" \"\" \"weili105@creditease.cn\" \"plain\" \"私募通搜索需要登录账号\" .email_body}}"
+                    ],
+                    "message": {
+                        "status": "fail",
+                        "data": "未登录"
+                    }
+                }
+            ]
+        },
+        {
+            "context_opers": [
+                "{{add \"ep\" 0}}",
+                "{{add \"ep_index\" 1}}",
+                "{{intToString .ep_index | set \"ep_index_str\"}}",
+                "{{add \"org\" 0}}",
+                "{{add \"org_index\" 1}}",
+                "{{intToString .org_index | set \"org_index_str\"}}",
+                "{{add \"invest\" 0}}",
+                "{{add \"invest_index\" 1}}",
+                "{{intToString .invest_index | set \"invest_index_str\"}}",
+                "{{add \"exit\" 0}}",
+                "{{add \"exit_index\" 1}}",
+                "{{intToString .exit_index | set \"exit_index_str\"}}",
+                "{{add \"person\" 0}}",
+                "{{add \"person_index\" 1}}",
+                "{{intToString .person_index | set \"person_index_str\"}}",
+                "{{add \"fund\" 0}}",
+                "{{add \"fund_index\" 1}}",
+                "{{intToString .fund_index | set \"fund_index_str\"}}"
+            ]
+        },
+        {
+            "tag": "ep",
+            "condition": "{{lt .ep .total_ep}}",
+            "page": "{{joinString \"http://www.pedata.cn/search/ep_\" .ep_index_str \"_\" .key_encode \".html\"}}",
+            "method": "GET",
+            "response_timeout": 30,
+            "visit_times": 3,
+            "doc_type": "html",
+            "output_filename": "ep_{{.ep}}.html",
+            "extractor_new": true,
+            "extractor": {
+                "企业": {
+                    "_root": ".search_one_main .gw_search_result",
+                    "_array": true,
+                    "机构名": ".index_one_news_title a",
+                    "机构链接": ".index_one_news_title a&attr=href",
+                    "时间": ".index_one_news_title b"
+                }
+            },
+            "actions": [
+                {
+                    "condition": "{{lt .ep .total_ep}}",
+                    "opers": [
+                        "{{add \"ep\" 10}}",
+                        "{{add \"ep_index\" 1}}",
+                        "{{intToString .ep_index | set \"ep_index_str\"}}"
+                    ],
+                    "goto": "ep"
+                }
+            ]
+        },
+        {
+            "tag": "org",
+            "condition": "{{lt .org .total_org}}",
+            "page": "{{joinString \"http://www.pedata.cn/search/org_\" .org_index_str \"_\" .key_encode \".html\"}}",
+            "method": "GET",
+            "response_timeout": 30,
+            "visit_times": 3,
+            "doc_type": "html",
+            "output_filename": "org_{{.org}}.html",
+            "extractor_new": true,
+            "extractor": {
+                "机构": {
+                    "_root": ".search_one_main .gw_search_result",
+                    "_array": true,
+                    "机构名": ".index_one_news_title a",
+                    "机构链接": ".index_one_news_title a&attr=href",
+                    "时间": ".index_one_news_title b"
+                }
+            },
+            "actions": [
+                {
+                    "condition": "{{lt .org .total_org}}",
+                    "opers": [
+                        "{{add \"org\" 10}}",
+                        "{{add \"org_index\" 1}}",
+                        "{{intToString .org_index | set \"org_index_str\"}}"
+                    ],
+                    "goto": "org"
+                }
+            ]
+        },
+        {
+            "tag": "invest",
+            "condition": "{{lt .invest .total_invest}}",
+            "page": "{{joinString \"http://www.pedata.cn/search/invest_\" .invest_index_str \"_\" .key_encode \".html\"}}",
+            "method": "GET",
+            "response_timeout": 30,
+            "visit_times": 3,
+            "doc_type": "html",
+            "output_filename": "invest_{{.invest}}.html",
+            "extractor_new": true,
+            "extractor": {
+                "投资事件": {
+                    "_root": ".search_one_main .gw_search_result",
+                    "_array": true,
+                    "投资事件": ".index_one_news_title a",
+                    "事件链接": ".index_one_news_title a&attr=href",
+                    "时间": ".index_one_news_title b"
+                }
+            },
+            "actions": [
+                {
+                    "condition": "{{lt .invest .total_invest}}",
+                    "opers": [
+                        "{{add \"invest\" 10}}",
+                        "{{add \"invest_index\" 1}}",
+                        "{{intToString .invest_index | set \"invest_index_str\"}}"
+                    ],
+                    "goto": "invest"
+                }
+            ]
+        },
+        {
+            "tag": "exit",
+            "condition": "{{lt .exit .total_exit}}",
+            "page": "{{joinString \"http://www.pedata.cn/search/exit_\" .exit_index_str \"_\" .key_encode \".html\"}}",
+            "method": "GET",
+            "response_timeout": 30,
+            "visit_times": 3,
+            "doc_type": "html",
+            "output_filename": "exit_{{.exit}}.html",
+            "extractor_new": true,
+            "extractor": {
+                "退出事件": {
+                    "_root": ".search_one_main .gw_search_result",
+                    "_array": true,
+                    "退出事件": ".index_one_news_title a",
+                    "事件链接": ".index_one_news_title a&attr=href",
+                    "时间": ".index_one_news_title b"
+                }
+            },
+            "actions": [
+                {
+                    "condition": "{{lt .exit .total_exit}}",
+                    "opers": [
+                        "{{add \"exit\" 10}}",
+                        "{{add \"exit_index\" 1}}",
+                        "{{intToString .exit_index | set \"exit_index_str\"}}"
+                    ],
+                    "goto": "exit"
+                }
+            ]
+        },
+        {
+            "tag": "person",
+            "condition": "{{lt .person .total_person}}",
+            "page": "{{joinString \"http://www.pedata.cn/search/person_\" .person_index_str \"_\" .key_encode \".html\"}}",
+            "method": "GET",
+            "response_timeout": 30,
+            "visit_times": 3,
+            "doc_type": "html",
+            "output_filename": "person_{{.person}}.html",
+            "extractor_new": true,
+            "extractor": {
+                "投资人": {
+                    "_root": ".search_one_main .gw_search_result",
+                    "_array": true,
+                    "投资人": ".index_one_news_title a",
+                    "投资人链接": ".index_one_news_title a&attr=href",
+                    "时间": ".index_one_news_title b"
+                }
+            },
+            "actions": [
+                {
+                    "condition": "{{lt .person .total_person}}",
+                    "opers": [
+                        "{{add \"person\" 10}}",
+                        "{{add \"person_index\" 1}}",
+                        "{{intToString .person_index | set \"person_index_str\"}}"
+                    ],
+                    "goto": "person"
+                }
+            ]
+        },
+        {
+            "tag": "fund",
+            "condition": "{{lt .fund .total_fund}}",
+            "page": "{{joinString \"http://www.pedata.cn/search/fund_\" .fund_index_str \"_\" .key_encode \".html\"}}",
+            "method": "GET",
+            "response_timeout": 30,
+            "visit_times": 3,
+            "doc_type": "html",
+            "output_filename": "fund_{{.fund}}.html",
+            "extractor_new": true,
+            "extractor": {
+                "基金": {
+                    "_root": ".search_one_main .gw_search_result",
+                    "_array": true,
+                    "基金": ".index_one_news_title a",
+                    "基金链接": ".index_one_news_title a&attr=href",
+                    "时间": ".index_one_news_title b"
+                }
+            },
+            "actions": [
+                {
+                    "condition": "{{lt .fund .total_fund}}",
+                    "opers": [
+                        "{{add \"fund\" 10}}",
+                        "{{add \"fund_index\" 1}}",
+                        "{{intToString .fund_index | set \"fund_index_str\"}}"
+                    ],
+                    "goto": "fund"
+                }
+            ]
+        }
+    ]
+}

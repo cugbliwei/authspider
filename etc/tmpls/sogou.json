@@ -1,0 +1,206 @@
+{
+    "disable_outpubkey": true,
+    "steps": [
+        {
+            "need_param": "query,tsn,table#,hashid#",
+            "context_opers": [
+                "{{set \"username\" .query}}",
+                "{{set \"page_idx\" 1}}",
+                "{{randIntn 49 | plus 1 | set \"idx\"}}",
+                "{{intToString .idx | set \"idx\"}}",
+                "{{set \"captcha_times\" 1}}"
+            ]
+        },
+        {
+            "get_from_redis": "sogou_cookie_{{.idx}}",
+            "context_opers": [
+                "{{base64Decode ._body | set \"new_cookies\"}}"
+            ],
+            "use_cookie": "{{._body}}"
+        },
+        {
+            "tag": "query_page",
+            "goto_times": 100,
+            "page": "http://weixin.sogou.com/weixin?type=2&ie=utf8&query={{.query}}&tsn={{.tsn}}&ft=&et=&interation=&wxid=&usip=&page={{.page_idx}}",
+            "header": {
+                "Referer": "http://weixin.sogou.com/weixin?type=2&s_from=input&query={{.query}}&ie=utf8&_sug_=n&_sug_type_="
+            },
+            "method": "GET",
+            "response_timeout": 30,
+            "visit_times": 1,
+            "sleep": 1,
+            "doc_type": "html",
+            "output_filename": "{{md5 .query}}_{{.page_idx}}.html",
+            "context_opers": [
+                "{{set \"page_idx_tmp\" .page_idx}}",
+                "{{extractHtml \"#sogou_next&attr=href&regex=page=([0-9]+)\" ._body | set \"page_idx\"}}"
+            ],
+            "extractor": {
+                "query": "c:{{.query}}",
+                "tasks": {
+                    "_root": ".news-box .news-list li",
+                    "_array": true,
+                    "title": ".txt-box h3 a",
+                    "link": ".txt-box h3 a&attr=href",
+                    "author": ".s-p a @index=0"
+                }
+            },
+            "actions": [
+                {
+                    "condition": "{{contains \"请输入验证码\" ._body}}",
+                    "opers": [
+                        "{{set \"page_idx\" .page_idx_tmp}}",
+                        "{{set \"anti_url\" ._url}}"
+                    ],
+                    "goto": "captcha"
+                },
+                {
+                    "condition": "{{notEmpty \"page_idx\"}}",
+                    "goto": "change_cookie"
+                }
+            ]
+        },
+        {   "next": {
+                "tmpl": "weixin",
+                "target": [
+                    "tasks.title",
+                    "tasks.author"
+                ],
+                "args": {
+                    "table": "c:{{.table}}",
+                    "hashid": "c:{{.hashid}}",
+                    "url": "tasks.link",
+                    "query": "c:{{.query}}"
+                }
+            }
+        },
+        {
+            "tag": "finish",
+            "message": {
+                "status": "finish_fetch_data",
+                "data": "finish"
+            }
+        },
+        {
+            "tag": "change_cookie",
+            "context_opers": [
+                "{{randIntn 49 | plus 1 | set \"idx\"}}",
+                "{{intToString .idx | set \"idx\"}}"
+            ],
+            "condition": "{{notEmpty \"page_idx\"}}",
+            "get_from_redis": "sogou_cookie_{{.idx}}",
+            "use_cookie": "{{._body}}",
+            "actions": [
+                {
+                    "condition": "{{eq 1 1}}",
+                    "goto": "query_page"
+                }
+            ]
+        },
+        {
+            "tag": "captcha",
+            "page": "http://weixin.sogou.com/antispider/util/seccode.php?tc=",
+            "method": "GET",
+            "response_timeout": 30,
+            "doc_type": "html",
+            "output_filename": "captcha_{{.captcha_times}}.png",
+            "context_opers": [
+                "{{base64Encode ._body | set \"captcha_base64\"}}"
+            ],
+            "actions": [
+                {
+                    "condition": "{{empty \"captcha_base64\"}}",
+                    "opers": [
+                        "{{add \"captcha_times\" 1}}"
+                    ],
+                    "goto": "captcha"
+                },
+                {
+                    "condition": "{{gt .captcha_times 40}}",
+                    "message":{
+                        "status": "fail",
+                        "data": "图片验证码错误次数过多"
+                    }
+                },
+                {
+                    "condition": "{{eq 1 1}}",
+                    "goto": "yisou_captcha"
+                }
+            ]
+        },
+        {
+            "tag": "yisou_captcha",
+            "page": "http://yisou.bdp.creditease.corp/captcha",
+            "method": "POST",
+            "params": {
+                "website": "sogou",
+                "img": "{{.captcha_base64}}"
+            },
+            "response_timeout": 30,
+            "visit_times": 2,
+            "context_opers": [
+                "{{set \"captcha_result\" ._body}}"
+            ],
+            "actions": [
+                {
+                    "condition": "notEmpty \"captcha_result\"",
+                    "goto": "auth_captcha"
+                },
+                {
+                    "condition": "empty \"captcha_result\"",
+                    "goto": "captcha"
+                }
+
+            ]
+        },
+        {
+            "tag": "auth_captcha",
+            "page": "http://weixin.sogou.com/antispider/thank.php",
+            "header": {
+                "Referer": "{{.anti_url}}"
+            },
+            "params": {
+                "r": "{{.anti_url}}",
+                "v": "5",
+                "c": "{{.captcha_result}}"
+            },
+            "method": "POST",
+            "response_timeout": 30,
+            "output_filename": "result_{{.captcha_times}}.json",
+            "context_opers": [
+                "{{extractJson \"code\" ._body | stringToInt | set \"code\"}}",
+                "{{extractJson \"msg\" ._body | set \"captcha_msg\"}}",
+                "{{extractJson \"id\" ._body | set \"snuid\"}}"
+            ],
+            "actions": [
+                {
+                    "condition": "{{eq .code 0}}",
+                    "goto": "update_cookie"
+                },
+                {
+                    "condition": "{{eq .code 3}}",
+                    "opers": [
+                        "{{add \"captcha_times\" 1}}"
+                    ],
+                    "goto": "captcha"
+                }
+            ]
+        },
+        {
+            "tag": "update_cookie",
+            "context_opers": [
+                "{{addKeyValueToJson .new_cookies \"sogou.com,sogou.com;/;SNUID\" \"Value\" .snuid | set \"new_cookies\"}}",
+                "{{base64Encode .new_cookies | set \"current_cookies\"}}",
+                "{{joinString \"sogou_cookie_\" .idx | set \"cookie_key\"}}",
+                "{{writeToRedis .cookie_key .current_cookies 86400}}"
+            ],
+            "use_cookie": "{{.current_cookies}}",
+            "actions": [
+                {
+                    "condition": "{{eq 1 1}}",
+                    "goto": "query_page"
+                }
+            ]
+        }
+    ]
+}

@@ -1,0 +1,543 @@
+{
+    "disable_output_folder": true,
+    "steps": [
+        {
+            "need_param": "username,password,client#",
+            "get_from_redis": "hc_taobao_tmp_{{.username}}",
+            "context_opers": [
+                "{{len ._body | set \"tmp_result_length\"}}"
+            ],
+            "actions": [
+                {
+                    "condition": "{{and (gt .tmp_result_length 1000) (eq .client \"jhjj\")}}",
+                    "opers": [
+                        "{{set \"tmp_body\" ._body}}",
+                        "{{mapToString \"status\" \"finish_fetch_data\" \"id\" ._id \"tmpl\" ._tmpl \"data\" \"抓取完成\" | set \"callback_result\"}}",
+                        "{{set \"callback_tag\" \"finish\"}}"
+                    ],
+                    "goto": "callback"
+                },
+                {
+                    "condition": "{{gt .tmp_result_length 1000}}",
+                    "message": {
+                        "status": "finish_fetch_data",
+                        "data": "抓取成功"
+                    }
+                }
+            ]
+        },
+        {
+            "tag": "begin_login",
+            "context_opers": [
+                "{{hexEncodeToString .username | set \"userCode\"}}",
+                "{{set \"clientId\" \"CE-BD-JHJJ\"}}",
+                "{{add \"visit_times\" 1}}",
+                "{{add \"callback_times\" 1}}",
+                "{{set \"serviceUrl\" \"http://honeycomb-api-gateway.yrd.idc\"}}",
+                "{{mapToString \"op\" \"login\" \"sourceCode\" \"jhjjH5\" \"userCode\" .userCode \"username\" .username \"password\" .password | encryptString .JhjjPublicKey | set \"codeEns\"}}"
+            ],
+            "actions": [
+                {
+                    "condition": "{{eq 1 1}}",
+                    "goto": "send"
+                }
+            ]
+        },
+        {
+            "tag": "callback",
+            "page": "http://microloan-crawler-center-prod.yxapp.in/internal/crawler/result",
+            "method": "POST",
+            "params": {
+                "result": "{{.callback_result}}",
+                "timestamp": "{{nowMillTimestamp}}"
+            },
+            "response_timeout": 10,
+            "visit_times": 5,
+            "doc_type": "json",
+            "context_opers": [
+                "{{extractJson \"status\" ._body | set \"callback_status\"}}",
+                "{{extractJson \"msg\" ._body | set \"callback_msg\"}}"
+            ],
+            "actions": [
+                {
+                    "condition": "{{and (eq .callback_status \"fail\") (lt .callback_times 5)}}",
+                    "opers": [
+                        "{{add \"callback_times\" 1}}"
+                    ],
+                    "goto": "callback"
+                },
+                {
+                    "condition": "{{eq .callback_status \"fail\"}}",
+                    "message":{
+                        "status": "fail",
+                        "data": "回调接口失败：{{.callback_msg}}"
+                    }
+                },
+                {
+                    "condition": "{{eq .callback_tag \"fail\"}}",
+                    "message":{
+                        "status": "fail",
+                        "data": "{{.callback_fail}}"
+                    }
+                },
+                {
+                    "condition": "{{eq .callback_tag \"finish\"}}",
+                    "goto": "finish"
+                },
+                {
+                    "condition": "{{eq .callback_tag \"captcha\"}}",
+                    "goto": "captcha"
+                },
+                {
+                    "condition": "{{eq .callback_tag \"fresh_captcha\"}}",
+                    "goto": "fresh_captcha"
+                },
+                {
+                    "condition": "{{eq .callback_tag \"sms\"}}",
+                    "goto": "sms"
+                },
+                {
+                    "condition": "{{eq .callback_tag \"fetch\"}}",
+                    "goto": "fetch"
+                },
+                {
+                    "condition": "{{eq .callback_tag \"qr_code\"}}",
+                    "goto": "qr_code"
+                },
+                {
+                    "condition": "{{eq .callback_tag \"send\"}}",
+                    "goto": "send"
+                },
+                {
+                    "condition": "{{eq .callback_tag \"submit\"}}",
+                    "goto": "submit"
+                },
+                {
+                    "condition": "{{eq 1 1}}",
+                    "message":{
+                        "status": "fail",
+                        "data": "回调流程错误"
+                    }
+                }
+            ]
+        },
+        {
+            "tag": "captcha",
+            "need_param": "randcode",
+            "context_opers": [
+                "{{mapToString \"op\" \"verify\" \"sid\" .sid \"checkcode\" .randcode | encryptString .JhjjPublicKey | set \"codeEns\"}}",
+                "{{add \"visit_times\" 1}}"
+            ],
+            "actions": [
+                {
+                    "condition": "{{eq 1 1}}",
+                    "goto": "send"
+                }
+            ]
+        },
+        {
+            "tag": "fresh_captcha",
+            "context_opers": [
+                "{{mapToString \"op\" \"verify\" \"sid\" .sid | encryptString .JhjjPublicKey | set \"codeEns\"}}",
+                "{{add \"visit_times\" 1}}"
+            ],
+            "actions": [
+                {
+                    "condition": "{{eq 1 1}}",
+                    "goto": "send"
+                }
+            ]
+        },
+        {
+            "tag": "sms",
+            "need_param": "password2",
+            "context_opers": [
+                "{{mapToString \"op\" \"verify\" \"sid\" .sid \"checkcode\" .password2 | encryptString .JhjjPublicKey | set \"codeEns\"}}",
+                "{{add \"visit_times\" 1}}"
+            ],
+            "actions": [
+                {
+                    "condition": "{{eq 1 1}}",
+                    "goto": "send"
+                }
+            ]
+        },
+        {
+            "tag": "fetch",
+            "context_opers": [
+                "{{mapToString \"op\" \"fetch\" \"username\" .username \"sid\" .sid | encryptString .JhjjPublicKey | set \"codeEns\"}}",
+                "{{add \"visit_times\" 1}}"
+            ],
+            "actions": [
+                {
+                    "condition": "{{eq 1 1}}",
+                    "goto": "send"
+                }
+            ]
+        },
+        {
+            "tag": "qr_code",
+            "context_opers": [
+                "{{mapToString \"op\" \"qrStatus\" \"sid\" .sid | encryptString .JhjjPublicKey | set \"codeEns\"}}",
+                "{{add \"visit_times\" 1}}"
+            ],
+            "sleep": 3,
+            "actions": [
+                {
+                    "condition": "{{and (gt .visit_times 60) (eq .client \"jhjj\")}}",
+                    "opers": [
+                        "{{mapToString \"status\" \"fail\" \"id\" ._id \"tmpl\" ._tmpl \"data\" \"超时未操作\" | set \"callback_result\"}}",
+                        "{{set \"callback_tag\" \"fail\"}}",
+                        "{{set \"callback_fail\" \"超时未操作\"}}"
+                    ],
+                    "goto": "callback"
+                },
+                {
+                    "condition": "{{gt .visit_times 60}}",
+                    "message":{
+                        "status": "fail",
+                        "data": "超时未操作"
+                    }
+                }
+            ]
+        },
+        {
+            "tag": "send",
+            "page": "{{joinString .serviceUrl \"?service=taobaoCore&clientId=\" .clientId \"&queryterms=\" .codeEns | urlEncode}}",
+            "method": "GET",
+            "response_timeout": 120,
+            "doc_type": "json",
+            "context_opers": [
+                "{{extractJson \"searchKey\" ._body | set \"searchKey\"}}",
+                "{{extractJson \"code\" ._body | set \"code\"}}",
+                "{{extractJson \"msg\" ._body | set \"msg\"}}"
+            ],
+            "actions": [
+                {
+                    "condition": "{{empty \"code\"}}",
+                    "goto": "send"
+                },
+                {
+                    "condition": "{{eq .code \"0\"}}",
+                    "delete_context": ["code"],
+                    "opers": [
+                        "{{mapToString \"op\" \"getResult\" \"searchKey\" .searchKey | encryptString .JhjjPublicKey | set \"codeEns\"}}"
+                    ],
+                    "goto": "submit"
+                },
+                {
+                    "condition": "{{and (ne .code \"0\") (eq .client \"jhjj\")}}",
+                    "opers": [
+                        "{{joinString \"hc_taobao_\" .code | get | set \"failMsg\"}}",
+                        "{{empty \"failMsg\" | whichOne \"{{.msg}}\" \"{{.failMsg}}\" | set \"failMsg\"}}",
+                        "{{empty \"failMsg\" | whichOne \"参数错误\" \"{{.failMsg}}\" | set \"failMsg\"}}",
+                        "{{mapToString \"status\" \"fail\" \"id\" ._id \"tmpl\" ._tmpl \"data\" .failMsg | set \"callback_result\"}}",
+                        "{{set \"callback_tag\" \"fail\"}}",
+                        "{{set \"callback_fail\" .failMsg}}"
+                    ],
+                    "goto": "callback"
+                },
+                {
+                    "condition": "{{ne .code \"0\"}}",
+                    "opers": [
+                        "{{joinString \"hc_taobao_\" .code | get | set \"failMsg\"}}",
+                        "{{empty \"failMsg\" | whichOne \"{{.msg}}\" \"{{.failMsg}}\" | set \"failMsg\"}}",
+                        "{{empty \"failMsg\" | whichOne \"参数错误\" \"{{.failMsg}}\" | set \"failMsg\"}}"
+                    ],
+                    "message":{
+                        "status": "fail",
+                        "data": "{{.failMsg}}"
+                    }
+                }
+            ]
+        },
+        {
+            "tag": "smallsleep",
+            "context_opers": [
+                "{{add \"visit_times\" 1}}"
+            ],
+            "sleep": 8,
+            "goto_times": 250,
+            "actions": [
+                {
+                    "condition": "{{and (gt .visit_times 60) (eq .client \"jhjj\")}}",
+                    "opers": [
+                        "{{mapToString \"status\" \"fail\" \"id\" ._id \"tmpl\" ._tmpl \"data\" \"蜂巢接口超时\" | set \"callback_result\"}}",
+                        "{{set \"callback_tag\" \"fail\"}}",
+                        "{{set \"callback_fail\" \"蜂巢接口超时\"}}"
+                    ],
+                    "goto": "callback"
+                },
+                {
+                    "condition": "{{gt .visit_times 60}}",
+                    "message":{
+                        "status": "fail",
+                        "data": "蜂巢接口超时"
+                    }
+                }
+            ]
+        },
+        {
+            "tag": "submit",
+            "page": "{{joinString .serviceUrl \"?service=taobaoCore&clientId=\" .clientId \"&queryterms=\" .codeEns | urlEncode}}",
+            "method": "GET",
+            "response_timeout": 300,
+            "goto_times": 250,
+            "doc_type": "json",
+            "context_opers": [
+                "{{extractJson \"searchKey\" ._body | set \"searchKey\"}}",
+                "{{extractJson \"code\" ._body | set \"code\"}}",
+                "{{extractJson \"msg\" ._body | set \"msg\"}}",
+                "{{extractJson \"sid\" ._body | set \"sid2\"}}",
+                "{{if notEmpty \"sid2\"}}{{set \"sid\" .sid2}}{{end}}",
+                "{{extractJson \"op\" ._body | set \"op\"}}",
+                "{{extractJson \"data\" ._body | set \"data\"}}",
+                "{{extractJson \"type\" ._body | set \"type\"}}"
+            ],
+            "actions": [
+                {
+                    "condition": "{{empty \"code\"}}",
+                    "goto": "submit"
+                },
+                {
+                    "condition": "{{eq .code \"7002\"}}",
+                    "delete_context": ["msg", "code"],
+                    "goto": "smallsleep"
+                },
+                {
+                    "condition": "{{eq .code \"7003\"}}",
+                    "delete_context": ["msg", "code"],
+                    "goto": "fetch"
+                },
+                {
+                    "condition": "{{and (eq .code \"7004\") (eq .client \"jhjj\")}}",
+                    "opers": [
+                        "{{writeToParser \"hc_taobao\" .username ._body}}",
+                        "{{set \"tmp_body\" ._body}}",
+                        "{{mapToString \"status\" \"finish_fetch_data\" \"id\" ._id \"tmpl\" ._tmpl \"data\" \"抓取完成\" | set \"callback_result\"}}",
+                        "{{set \"callback_tag\" \"finish\"}}"
+                    ],
+                    "goto": "callback"
+                },
+                {
+                    "condition": "{{eq .code \"7004\"}}",
+                    "opers": [
+                        "{{writeToParser \"hc_taobao\" .username ._body}}",
+                        "{{set \"tmp_body\" ._body}}"
+                    ],
+                    "goto": "finish"
+                },
+                {
+                    "condition": "{{and (eq .code \"1001\") (eq .client \"jhjj\")}}",
+                    "opers": [
+                        "{{mapToString \"status\" \"fail\" \"id\" ._id \"tmpl\" ._tmpl \"data\" \"用户名或密码错误\" | set \"callback_result\"}}",
+                        "{{set \"callback_tag\" \"fail\"}}",
+                        "{{set \"callback_fail\" \"用户名或密码错误\"}}"
+                    ],
+                    "goto": "callback"
+                },
+                {
+                    "condition": "{{eq .code \"1001\"}}",
+                    "message":{
+                        "status": "fail",
+                        "data": "用户名或密码错误"
+                    }
+                },
+                {
+                    "condition": "{{and (eq .code \"0\") (eq .type \"0\") (notEmpty \"data\") (eq .client \"jhjj\")}}",
+                    "delete_context": ["randcode", "password2", "send_sms", "msg", "code"],
+                    "opers": [
+                        "{{set \"send_picture\" \"true\"}}",
+                        "{{uploadVerifyCode .data | set \"randcodeUrl\"}}",
+                        "{{mapToString \"status\" \"output_verifycode\" \"id\" ._id \"tmpl\" ._tmpl \"data\" .randcodeUrl \"need_param\" \"randcode\" | set \"callback_result\"}}",
+                        "{{set \"callback_tag\" \"captcha\"}}"
+                    ],
+                    "message": {
+                        "status": "output_verifycode",
+                        "data": "{{.randcodeUrl}}",
+                        "need_param": "randcode"
+                    },
+                    "goto": "callback"
+                },
+                {
+                    "condition": "{{and (eq .code \"0\") (eq .type \"0\") (notEmpty \"data\")}}",
+                    "delete_context": ["randcode", "password2", "send_sms", "msg", "code"],
+                    "opers": [
+                        "{{set \"send_picture\" \"true\"}}",
+                        "{{uploadVerifyCode .data | set \"randcodeUrl\"}}"
+                    ],
+                    "message": {
+                        "status": "output_verifycode",
+                        "data": "{{.randcodeUrl}}",
+                        "need_param": "randcode"
+                    },
+                    "goto": "captcha"
+                },
+                {
+                    "condition": "{{and (eq .code \"1002\") (notEmpty \"send_picture\") (eq .client \"jhjj\")}}",
+                    "delete_context": ["randcode", "password2", "msg", "code"],
+                    "opers": [
+                        "{{uploadVerifyCode .data | set \"randcodeUrl\"}}",
+                        "{{mapToString \"status\" \"wrong_verifycode\" \"id\" ._id \"tmpl\" ._tmpl \"data\" .randcodeUrl \"need_param\" \"randcode\" | set \"callback_result\"}}",
+                        "{{set \"callback_tag\" \"fresh_captcha\"}}"
+                    ],
+                    "message": {
+                        "status": "wrong_verifycode",
+                        "data": "{{.randcodeUrl}}",
+                        "need_param": "randcode"
+                    },
+                    "goto": "callback"
+                },
+                {
+                    "condition": "{{and (eq .code \"1002\") (notEmpty \"send_picture\")}}",
+                    "delete_context": ["randcode", "password2", "msg", "code"],
+                    "opers": [
+                        "{{uploadVerifyCode .data | set \"randcodeUrl\"}}"
+                    ],
+                    "message": {
+                        "status": "wrong_verifycode",
+                        "data": "{{.randcodeUrl}}",
+                        "need_param": "randcode"
+                    },
+                    "goto": "fresh_captcha"
+                },
+                {
+                    "condition": "{{and (eq .code \"0\") (eq .type \"1\") (eq .client \"jhjj\")}}",
+                    "delete_context": ["randcode", "password2", "send_picture", "msg", "code"],
+                    "opers": [
+                        "{{set \"send_sms\" \"true\"}}",
+                        "{{mapToString \"status\" \"need_param\" \"id\" ._id \"tmpl\" ._tmpl \"data\" .username \"need_param\" \"password2\" | set \"callback_result\"}}",
+                        "{{set \"callback_tag\" \"sms\"}}"
+                    ],
+                    "message":{
+                        "status": "need_param",
+                        "need_param": "password2",
+                        "data": "{{.username}}"
+                    },
+                    "goto": "callback"
+                },
+                {
+                    "condition": "{{and (eq .code \"0\") (eq .type \"1\")}}",
+                    "delete_context": ["randcode", "password2", "send_picture", "msg", "code"],
+                    "opers": [
+                        "{{set \"send_sms\" \"true\"}}"
+                    ],
+                    "message":{
+                        "status": "need_param",
+                        "need_param": "password2",
+                        "data": "{{.username}}"
+                    },
+                    "goto": "sms"
+                },
+                {
+                    "condition": "{{and (eq .code \"1002\") (notEmpty \"send_sms\") (eq .client \"jhjj\")}}",
+                    "delete_context": ["randcode","password2", "msg", "code"],
+                    "opers": [
+                        "{{mapToString \"status\" \"wrong_second_password\" \"id\" ._id \"tmpl\" ._tmpl \"data\" \"短信验证码错误\" \"need_param\" \"password2\" | set \"callback_result\"}}",
+                        "{{set \"callback_tag\" \"sms\"}}"
+                    ],
+                    "message":{
+                        "status": "wrong_second_password",
+                        "need_param": "password2",
+                        "data": "短信验证码错误"
+                    },
+                    "goto": "callback"
+                },
+                {
+                    "condition": "{{and (eq .code \"1002\") (notEmpty \"send_sms\")}}",
+                    "delete_context": ["randcode","password2", "msg", "code"],
+                    "message":{
+                        "status": "wrong_second_password",
+                        "need_param": "password2",
+                        "data": "短信验证码错误"
+                    },
+                    "goto": "sms"
+                },
+                {
+                    "condition": "{{and (eq .code \"0\") (eq .type \"3\") (notEmpty \"data\") (eq .client \"jhjj\")}}",
+                    "delete_context": ["msg", "code"],
+                    "opers": [
+                        "{{uploadVerifyCode .data | set \"qrcodeUrl\"}}",
+                        "{{mapToString \"status\" \"need_scan_qr\" \"id\" ._id \"tmpl\" ._tmpl \"data\" .qrcodeUrl | set \"callback_result\"}}",
+                        "{{set \"callback_tag\" \"qr_code\"}}"
+                    ],
+                    "message": {
+                        "status": "need_scan_qr",
+                        "data": "{{.qrcodeUrl}}"
+                    },
+                    "goto": "callback"
+                },
+                {
+                    "condition": "{{and (eq .code \"0\") (eq .type \"3\") (notEmpty \"data\")}}",
+                    "delete_context": ["msg", "code"],
+                    "opers": [
+                        "{{uploadVerifyCode .data | set \"qrcodeUrl\"}}"
+                    ],
+                    "message": {
+                        "status": "need_scan_qr",
+                        "data": "{{.qrcodeUrl}}"
+                    },
+                    "goto": "qr_code"
+                },
+                {
+                    "condition": "{{eq .code \"6010\"}}",
+                    "delete_context": ["msg", "code"],
+                    "goto": "qr_code"
+                },
+                {
+                    "condition": "{{eq .code \"6011\"}}",
+                    "delete_context": ["msg", "code"],
+                    "message": {
+                        "status": "should_press_enter",
+                        "data": "已扫描成功，请点击确定允许登录"
+                    },
+                    "goto": "qr_code"
+                },
+                {
+                    "condition": "{{and (eq .code \"4000\") (notEmpty \"msg\") (eq .client \"jhjj\")}}",
+                    "opers": [
+                        "{{mapToString \"status\" \"fail\" \"id\" ._id \"tmpl\" ._tmpl \"data\" .msg | set \"callback_result\"}}",
+                        "{{set \"callback_tag\" \"fail\"}}",
+                        "{{set \"callback_fail\" .msg}}"
+                    ],
+                    "goto": "callback"
+                },
+                {
+                    "condition": "{{and (eq .code \"4000\") (notEmpty \"msg\")}}",
+                    "message":{
+                        "status": "fail",
+                        "data": "{{.msg}}"
+                    }
+                },
+                {
+                    "condition": "{{and (ne .code \"0\") (eq .client \"jhjj\")}}",
+                    "opers": [
+                        "{{joinString \"hc_taobao_\" .code | get | set \"failMsg\"}}",
+                        "{{empty \"failMsg\" | whichOne \"{{.msg}}\" \"{{.failMsg}}\" | set \"failMsg\"}}",
+                        "{{empty \"failMsg\" | whichOne \"参数错误\" \"{{.failMsg}}\" | set \"failMsg\"}}",
+                        "{{mapToString \"status\" \"fail\" \"id\" ._id \"tmpl\" ._tmpl \"data\" .failMsg | set \"callback_result\"}}",
+                        "{{set \"callback_tag\" \"fail\"}}",
+                        "{{set \"callback_fail\" .failMsg}}"
+                    ],
+                    "goto": "callback"
+                },
+                {
+                    "condition": "{{ne .code \"0\"}}",
+                    "opers": [
+                        "{{joinString \"hc_taobao_\" .code | get | set \"failMsg\"}}",
+                        "{{empty \"failMsg\" | whichOne \"{{.msg}}\" \"{{.failMsg}}\" | set \"failMsg\"}}",
+                        "{{empty \"failMsg\" | whichOne \"参数错误\" \"{{.failMsg}}\" | set \"failMsg\"}}"
+                    ],
+                    "message":{
+                        "status": "fail",
+                        "data": "{{.failMsg}}"
+                    }
+                }
+            ]
+        },
+        {
+            "tag": "finish",
+            "push_to_redis": "hc_taobao_tmp_{{.username}},{{.tmp_body}},60"
+        }
+    ]
+}

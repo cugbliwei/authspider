@@ -1,0 +1,236 @@
+{
+    "disable_outpubkey": true,
+    "steps": [
+        {
+            "need_param": "query,tsn",
+            "context_opers": [
+                "{{set \"username\" .query}}",
+                "{{randIntn 19 | plus 1 | set \"idx\"}}"
+            ]
+        },
+        {
+            "get_from_redis": "sogou_cookie_{{.idx}}",
+            "context_opers": [
+                "{{base64Decode ._body | set \"new_cookies\"}}"
+            ],
+            "use_cookie": "{{._body}}"
+        },
+        {
+            "tag": "query_all",
+            "page": "http://weixin.sogou.com/weixin?type=2&query={{.query}}&ie=utf8&s_from=input&_sug_=n&_sug_type_=",
+            "header": {
+                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.113 Safari/537.36",
+                "Referer": "http://weixin.sogou.com/"
+            },
+            "method": "GET",
+            "response_timeout": 30,
+            "visit_times": 1,
+            "sleep": 1,
+            "doc_type": "html",
+            "output_filename": "{{.query}}.html",
+            "context_opers": [
+                "{{extractHtml \"#account .gzh-box .img-box2 a img @index=0&attr=src\" ._body | extractWxid |set \"wxid\"}}",
+                "{{extractHtml \"#account .gzh-box .txt-box2 .gzh-num label\" ._body | set \"gzh\"}}",
+                "{{randIntn 19 | plus 1 | set \"idx\"}}"
+            ],
+            "actions": [
+                {
+                    "condition": "{{contains \"请输入验证码\" ._body}}",
+                    "opers": [
+                        "{{set \"anti_url\" .url}}"
+                    ],
+                    "goto": "captcha"
+                },
+                {
+                    "condition": "{{notEmpty \"wxid\"}}",
+                    "goto": "query_page"
+                },
+                {
+                    "condition": "{{empty \"wxid\"}}",
+                    "goto": "change_cookie"
+                }
+
+            ]
+        },
+        {
+            "tag": "change_cookie",
+            "get_from_redis": "sogou_cookie_{{.idx}}",
+            "use_cookie": "{{._body}}",
+            "actions": [
+                {
+                    "condition": "{{gt .times 3}}",
+                    "message":{
+                        "status": "fail",
+                        "data": "wxid为空超过3次"
+                    },
+                    "goto": "finish"
+                },
+                {
+                    "condition": "{{eq 1 1}}",
+                    "opers": [
+                        "{{add \"times\" 1}}"
+                    ],
+                    "goto": "query_all"
+                }
+            ]
+        },
+        {
+            "tag": "query_page",
+            "page": "http://weixin.sogou.com/weixin?type=2&ie=utf8&query={{.query}}&tsn={{.tsn}}&ft=&et=&interation=&wxid={{.wxid}}&usip={{.gzh}}",
+            "header": {
+                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.113 Safari/537.36",
+                "Referer": "http://weixin.sogou.com/weixin?type=2&ie=utf8&query={{.query}}&tsn={{.tsn}}&ft=&et=&interation=&wxid=&usip="
+            },
+            "method": "GET",
+            "response_timeout": 30,
+            "visit_times": 1,
+            "sleep": 1,
+            "doc_type": "html",
+            "output_filename": "{{.query}}.html",
+            "context_opers": [
+                "{{randIntn 19 | plus 1 | set \"idx\"}}"
+            ],
+            "extractor": {
+                "query": "c:{{.query}}",
+                "records": {
+                    "_root": ".news-box .news-list li",
+                    "_array": true,
+                    "title": ".txt-box h3 a",
+                    "author": ".s-p a @index=0",
+                    "header_image": ".img-box a img&attr=src",
+                    "detail": {
+                        "_context": [
+                            {
+                                "_key": "detail_url",
+                                "_value": ".txt-box h3 a&attr=href"
+                            }
+                        ],
+                        "_url": "http://authcrawler.yixin.com/submit?tmpl=zhiwang_weixin&query={{urlQueryEscape .query}}&url={{urlQueryEscape .detail_url}}",
+                        "_next": "http://authcrawler.yixin.com/submit?id="
+                    }
+                }
+            },
+            "actions": [
+                {
+                    "condition": "{{contains \"请输入验证码\" ._body}}",
+                    "opers": [
+                        "{{set \"anti_url\" .url}}"
+                    ],
+                    "goto": "captcha"
+                },
+                {
+                    "condition": "{{eq 1 1}}",
+                    "goto": "finish"
+                }
+            ]
+        },
+        {
+            "tag": "captcha",
+            "page": "http://weixin.sogou.com/antispider/util/seccode.php?tc=",
+            "method": "GET",
+            "response_timeout": 30,
+            "doc_type": "html",
+            "output_filename": "captcha_{{.captcha_times}}.png",
+            "context_opers": [
+                "{{base64Encode ._body | set \"captcha_base64\"}}"
+            ],
+            "actions": [
+                {
+                    "condition": "{{empty \"captcha_base64\"}}",
+                    "opers": [
+                        "{{add \"captcha_times\" 1}}"
+                    ],
+                    "goto": "captcha"
+                },
+                {
+                    "condition": "{{gt .captcha_times 5}}",
+                    "message":{
+                        "status": "fail",
+                        "data": "图片验证码错误次数过多"
+                    }
+                },
+                {
+                    "condition": "{{eq 1 1}}",
+                    "goto": "yisou_captcha"
+                }
+            ]
+        },
+        {
+            "tag": "yisou_captcha",
+            "page": "http://yisou.bdp.creditease.corp/captcha",
+            "method": "POST",
+            "params": {
+                "website": "sogou",
+                "img": "{{.captcha_base64}}"
+            },
+            "response_timeout": 30,
+            "visit_times": 2,
+            "context_opers": [
+                "{{set \"captcha_result\" ._body}}"
+            ],
+            "actions": [
+                {
+                    "condition": "notEmpty \"captcha_result\"",
+                    "goto": "auth_captcha"
+                },
+                {
+                    "condition": "empty \"captcha_result\"",
+                    "goto": "captcha"
+                }
+
+            ]
+        },
+        {
+            "tag": "auth_captcha",
+            "page": "http://weixin.sogou.com/antispider/thank.php",
+            "header": {
+                "Referer": "{{.anti_url}}"
+            },
+            "params": {
+                "r": "{{.anti_url}}",
+                "v": "5",
+                "c": "{{.captcha_result}}"
+            },
+            "method": "POST",
+            "response_timeout": 30,
+            "output_filename": "result_{{.captcha_times}}.json",
+            "context_opers": [
+                "{{extractJson \"code\" ._body | stringToInt | set \"code\"}}",
+                "{{extractJson \"msg\" ._body | set \"captcha_msg\"}}",
+                "{{extractJson \"id\" ._body | set \"snuid\"}}"
+            ],
+            "actions": [
+                {
+                    "condition": "{{eq .code 0}}",
+                    "goto": "update_cookie"
+                },
+                {
+                    "condition": "{{eq .code 3}}",
+                    "opers": [
+                        "{{add \"captcha_times\" 1}}"
+                    ],
+                    "goto": "captcha"
+                }
+            ]
+        },
+        {
+            "tag": "update_cookie",
+            "context_opers": [
+                "{{addKeyValueToJson .new_cookies \"sogou.com,sogou.com;/;SNUID\" \"Value\" .snuid | set \"new_cookies\"}}",
+                "{{base64Encode .new_cookies | set \"current_cookies\"}}",
+                "{{joinString \"sogou_cookie_\" .idx | set \"cookie_key\"}}",
+                "{{writeToRedis .cookie_key .current_cookies 86400}}"
+            ],
+            "use_cookie": "{{.current_cookies}}",
+            "actions": [
+                {
+                    "condition": "{{eq 1 1}}",
+                    "goto": "query_all"
+                }
+            ]
+        },
+        {
+            "tag": "finish"
+        }
+    ]
+}

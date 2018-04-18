@@ -1,0 +1,169 @@
+{
+    "disable_outpubkey": true,
+    "steps": [
+        {
+            "need_param": "number,link,type",
+            "get_from_redis": "suaee_{{.number}}",
+            "context_opers": [
+                "{{len ._body | set \"tmp_result_length\"}}"
+            ],
+            "actions": [
+                {
+                    "condition": "{{or (contains \"no_exist\" .number) (contains \"no_exist\" .link)}}",
+                    "message": {
+                        "status": "fail",
+                        "data": "参数错误"
+                    }
+                },
+                {
+                    "condition": "{{gt .tmp_result_length 10}}",
+                    "message": {
+                        "status": "fail",
+                        "data": "已经抓取过"
+                    }
+                }
+            ]
+        },
+        {
+            "condition": "{{eq \"property\" .type}}",
+            "page": "{{.link}}",
+            "method": "GET",
+            "response_timeout": 30,
+            "visit_times": 3,
+            "doc_type": "html",
+            "output_filename": "property.html",
+            "context_opers": [
+                "{{joinString \"suaee_\" .number | set \"tmp_key\"}}",
+                "{{writeToRedis .tmp_key .tmp_key 86400}}"
+            ],
+            "extractor": {
+                "项目概况": {
+                    "项目名称": ".sjxmmc",
+                    "挂牌价格": "#firstTb tbody tr @index=0 td @index=3",
+                    "挂牌起始日期": "#firstTb tbody tr @index=1 td @index=1",
+                    "挂牌期满日期": "#firstTb tbody tr @index=1 td @index=3"
+                },
+                "标的企业基本情况": {
+                    "法定代表人": ".xm_tab tbody tr td:contains('法定代表人') ~ td @index=0",
+                    "成立时间": ".xm_tab tbody tr td:contains('成立时间') ~ td @index=0",
+                    "注册资本": ".xm_tab tbody tr td:contains('注册资本') ~ td @index=0",
+                    "所属行业": "#firstTb tbody tr td:contains('标的所属行业') ~ td @index=0",
+                    "经济类型": ".xm_tab tbody tr td:contains('经济类型') ~ td @index=0",
+                    "经营规模": ".xm_tab tbody tr td:contains('经营规模') ~ td @index=0",
+                    "经营范围": ".xm_tab tbody tr td:contains('经营范围') ~ td @index=0",
+                    "股权结构": {
+                        "_root": ".xm_tab tbody:contains('股东名称') tr @slice=3:0",
+                        "_array": true,
+                        "股东名称": "td @index=1",
+                        "比例": "td @index=2"
+                    }
+                },
+                "主要财务指标": {
+                    "年度": ".xm_tab @index=3 tbody tr:contains('营业收入（万元）') td @index=1",
+                    "营业收入": ".xm_tab tbody tr td:contains('营业收入') ~ td @index=0",
+                    "营业利润": ".xm_tab tbody tr td:contains('营业利润') ~ td @index=0",
+                    "净利润": ".xm_tab tbody tr td:contains('净利润') ~ td @index=0",
+                    "资产总计": ".xm_tab tbody tr td:contains('资产总计') ~ td @index=0",
+                    "负债总计": ".xm_tab tbody tr td:contains('负债总计') ~ td @index=0",
+                    "所有者权益": ".xm_tab tbody tr td:contains('所有者权益') ~ td @index=0",
+                    "审计机构": ".xm_tab tbody tr td:contains('审计机构') ~ td @index=0"
+                },
+                "估值": {
+                    "资产总计-账面价值": ".xm_tab tbody tr:contains('账面价值') ~ tr:contains('资产总计') td @index=1",
+                    "资产总计-评估价值": ".xm_tab tbody tr:contains('账面价值') ~ tr:contains('资产总计') td @index=2",
+                    "负债总计-账面价值": ".xm_tab tbody tr:contains('账面价值') ~ tr:contains('负债总计') td @index=1",
+                    "负债总计-评估价值": ".xm_tab tbody tr:contains('账面价值') ~ tr:contains('负债总计') td @index=2",
+                    "净资产-账面价值": ".xm_tab tbody tr:contains('账面价值') ~ tr:contains('净资产') td @index=1",
+                    "净资产-评估价值": ".xm_tab tbody tr:contains('账面价值') ~ tr:contains('净资产') td @index=2",
+                    "转让标的对应评估值": ".xm_tab tbody tr:contains('账面价值') ~ tr:contains('转让标的对应评估值') td @index=1"
+                },
+                "转让方简况": {
+                    "_root": ".xm_tab tbody:contains('转让方名称')",
+                    "_array": true,
+                    "转让方名称": "td:contains('转让方名称') ~ td @index=0",
+                    "经济类型": "td:contains('经济类型') ~ td @index=0",
+                    "公司类型（经济性质）": "td:contains('公司类型（经济性质）') ~ td @index=0",
+                    "持有产(股)权比例": "td:contains('持有产(股)权比例') ~ td @index=0",
+                    "拟转让产(股)权比例": "td:contains('拟转让产(股)权比例') ~ td @index=0"
+                },
+                "保证金": ".xm_tab tbody tr td:contains('交纳金额') ~ td @index=0"
+            }
+        },
+        {
+            "condition": "{{eq \"capital\" .type}}",
+            "page": "{{.link}}",
+            "method": "GET",
+            "response_timeout": 30,
+            "visit_times": 3,
+            "doc_type": "html",
+            "output_filename": "capital.html",
+            "context_opers": [
+                "{{joinString \"suaee_\" .number | set \"tmp_key\"}}",
+                "{{writeToRedis .tmp_key .tmp_key 86400}}"
+            ],
+            "extractor": {
+                "项目概况": {
+                    "项目名称": ".sjxmmc",
+                    "拟募集资金金额": "#firstTb tbody tr @index=0 td @index=3",
+                    "挂牌起始日期": "#firstTb tbody tr @index=1 td @index=1",
+                    "挂牌期满日期": "#firstTb tbody tr @index=1 td @index=3",
+                    "拟募集资金对应持股比例": "#firstTb tbody tr:contains('拟募集资金对应持股比例') td @index=3",
+                    "增资后企业股权结构": "#firstTb tbody tr:contains('增资后企业股权结构') td @index=1",
+                    "募集资金用途": "#firstTb tbody tr:contains('募集资金用途') td @index=1"
+                },
+                "增资基本情况": {
+                    "法定代表人": "tbody tr td:contains('法定代表人') ~ td @index=0",
+                    "成立日期": "tbody tr td:contains('成立日期') ~ td @index=0",
+                    "注册资本": "tbody:contains('法定代表人') tr td:contains('注册资本') ~ td @index=0",
+                    "所属行业": "#firstTb tbody tr td:contains('增资人所属行业') ~ td @index=0",
+                    "经济类型": "tbody tr td:contains('经济类型') ~ td @index=0",
+                    "经营规模": "tbody tr td:contains('经营规模') ~ td @index=0",
+                    "经营范围": "tbody tr td:contains('经营范围') ~ td @index=0",
+                    "股权结构": {
+                        "_root": "tbody:contains('股东名称（按持股比例多少排序）') @index=1 tr @slice=1:0",
+                        "_array": true,
+                        "股东名称": "td @index=1",
+                        "比例": "td @index=2"
+                    }
+                },
+                "主要财务指标": {
+                    "@key table tbody:contains('主要财务指标') tr @index=1 td @index=1": {
+                        "资产总额": "table tbody:contains('主要财务指标') tr:contains('资产总额') td @index=1",
+                        "负债总额": "table tbody:contains('主要财务指标') tr:contains('负债总额') td @index=1",
+                        "所有者权益": "table tbody:contains('主要财务指标') tr:contains('所有者权益') td @index=1",
+                        "营业收入": "table tbody:contains('主要财务指标') tr:contains('营业收入') td @index=1",
+                        "利润总额": "table tbody:contains('主要财务指标') tr:contains('利润总额') td @index=1",
+                        "净利润": "table tbody:contains('主要财务指标') tr:contains('净利润') td @index=1"
+                    },
+                    "@key table tbody:contains('主要财务指标') tr @index=1 td @index=2": {
+                        "资产总额": "table tbody:contains('主要财务指标') tr:contains('资产总额') td @index=2",
+                        "负债总额": "table tbody:contains('主要财务指标') tr:contains('负债总额') td @index=2",
+                        "所有者权益": "table tbody:contains('主要财务指标') tr:contains('所有者权益') td @index=2",
+                        "营业收入": "table tbody:contains('主要财务指标') tr:contains('营业收入') td @index=2",
+                        "利润总额": "table tbody:contains('主要财务指标') tr:contains('利润总额') td @index=2",
+                        "净利润": "table tbody:contains('主要财务指标') tr:contains('净利润') td @index=2"
+                    },
+                    "@key table tbody:contains('主要财务指标') tr @index=1 td @index=3": {
+                        "资产总额": "table tbody:contains('主要财务指标') tr:contains('资产总额') td @index=3",
+                        "负债总额": "table tbody:contains('主要财务指标') tr:contains('负债总额') td @index=3",
+                        "所有者权益": "table tbody:contains('主要财务指标') tr:contains('所有者权益') td @index=3",
+                        "营业收入": "table tbody:contains('主要财务指标') tr:contains('营业收入') td @index=3",
+                        "利润总额": "table tbody:contains('主要财务指标') tr:contains('利润总额') td @index=3",
+                        "净利润": "table tbody:contains('主要财务指标') tr:contains('净利润') td @index=3"
+                    }
+                },
+                "估值": {
+                    "_root": "table tbody:contains('估值情况')",
+                    "资产总额-账面值": "tr:contains('资产总额') td @index=1",
+                    "资产总额-估值": "tr:contains('资产总额') td @index=2",
+                    "负债总额-账面值": "tr:contains('负债总额') td @index=1",
+                    "负债总额-估值": "tr:contains('负债总额') td @index=2",
+                    "净资产-账面值": "tr:contains('净资产') td @index=1",
+                    "净资产-估值": "tr:contains('净资产') td @index=2"
+                },
+                "投资人资格条件": "#firstTb:contains('保证金设定') tbody tr:contains('投资人资格条件') td @index=1",
+                "保证金": "tbody tr:contains('交纳保证金金额') td @index=1"
+            }
+        }
+    ]
+}

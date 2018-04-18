@@ -1,0 +1,350 @@
+{
+    "casperjs_script": "jd_buyer.js",
+    "steps": [
+        {
+            "need_param": "username,password"
+        },
+        {
+            "tag": "read_param",
+            "context_opers": [
+                "{{readCasper | set \"casper_param\"}}"
+            ],
+            "actions": [
+                {
+                    "condition": "{{hasPrefix .casper_param \"need_path\"}}",
+                    "opers": [
+                        "{{joinString \"path###\" ._path | set \"path_params\"}}",
+                        "{{writeCasper .path_params}}"
+                    ],
+                    "goto": "read_param"
+                },
+                {
+                    "condition": "{{hasPrefix .casper_param \"need_username\"}}",
+                    "opers": [
+                        "{{joinString \"username###\" .username \"###\" .password | set \"login_params\"}}",
+                        "{{writeCasper .login_params}}"
+                    ],
+                    "goto": "read_param"
+                },
+                {
+                    "condition": "{{hasPrefix .casper_param \"fail\"}}",
+                    "opers": [
+                        "{{getCasperMsg .casper_param \";\" | set \"casper_msg\"}}"
+                    ],
+                    "message": {
+                        "status": "fail",
+                        "data": "{{.casper_msg}}"
+                    }
+                },
+                {
+                    "condition": "{{hasPrefix .casper_param \"need_randcode\"}}",
+                    "opers": [
+                        "{{getCasperMsg .casper_param \";\" | set \"randcode_base64\"}}",
+                        "{{add \"randcode_times\" 1}}"
+                    ],
+                    "goto": "send_randcode"
+                },
+                {
+                    "condition": "{{and (hasPrefix .casper_param \"wrong_randcode\") (lt 3 .randcode_times)}}",
+                    "message": {
+                        "status": "fail",
+                        "data": "图片验证码错误次数过多"
+                    }
+                },
+                {
+                    "condition": "{{hasPrefix .casper_param \"wrong_randcode\"}}",
+                    "delete_context": ["randcode", "randcodeUrl", "randcode_base64"],
+                    "opers": [
+                        "{{getCasperMsg .casper_param \";\" | set \"randcode_base64\"}}",
+                        "{{add \"randcode_times\" 1}}"
+                    ],
+                    "goto": "send_randcode"
+                },
+                {
+                    "condition": "{{hasPrefix .casper_param \"need_password2\"}}",
+                    "opers": [
+                        "{{getCasperMsg .casper_param \";\" | set \"phone_number\"}}",
+                        "{{add \"password2_times\" 1}}"
+                    ],
+                    "message": {
+                        "need_param": "password2",
+                        "status": "need_param",
+                        "data": "{{.phone_number}}"
+                    },
+                    "goto": "sms"
+                },
+                {
+                    "condition": "{{and (hasPrefix .casper_param \"wrong_password2\") (lt 2 .password2_times)}}",
+                    "message": {
+                        "status": "fail",
+                        "data": "短信码错误次数过多"
+                    }
+                },
+                {
+                    "condition": "{{hasPrefix .casper_param \"wrong_password2\"}}",
+                    "delete_context": ["password2"],
+                    "opers": [
+                        "{{add \"password2_times\" 1}}"
+                    ],
+                    "message": {
+                        "need_param": "password2",
+                        "status": "wrong_second_password",
+                        "data": "{{.phone_number}}"
+                    },
+                    "goto": "sms"
+                },
+                {
+                    "condition": "{{hasPrefix .casper_param \"cookie###\"}}",
+                    "opers": [
+                        "{{getCasperMsg .casper_param \"###\" | base64Encode | set \"casper_cookies\"}}"
+                    ],
+                    "goto": "casper_login_success"
+                }
+            ]
+        },
+        {
+            "tag": "send_randcode",
+            "page": "http://10.130.64.69:8399/captcha",
+            "method": "POST",
+            "params": {
+                "website": "jd",
+                "img": "{{.randcode_base64}}"
+            },
+            "response_timeout": 30,
+            "visit_times": 2,
+            "context_opers": [
+                "{{set \"randcode\" ._body}}"
+            ],
+            "actions": [
+                {
+                    "condition": "{{eq 1 1}}",
+                    "opers": [
+                        "{{joinString \"randcode###\" .randcode | set \"randcode_params\"}}",
+                        "{{writeCasper .randcode_params}}"
+                    ],
+                    "goto": "read_param"
+                }
+            ]
+        },
+        {
+            "tag": "sms",
+            "need_param": "password2",
+            "context_opers": [
+                "{{joinString \"password2###\" .password2 | set \"sms_params\"}}",
+                "{{writeCasper .sms_params}}"
+            ],
+            "actions": [
+                {
+                    "condition": "{{eq 1 1}}",
+                    "goto": "read_param"
+                }
+            ]
+        },
+        {
+            "tag": "casper_login_success",
+            "use_cookie": "{{.casper_cookies}}",
+            "context_opers": [
+                "{{set \"year\" 0}}",
+                "{{set \"page_index\" 1}}"
+            ]
+        },
+        {
+            "page": "https://i.jd.com/user/info",
+            "method": "GET",
+            "response_timeout": 60,
+            "visit_times": 3,
+			"output_filename": "user_info.html",
+            "context_opers": [
+                "{{extractHtml \"#realName&attr=value\" ._body | set \"userinfo_name\"}}",
+                "{{extractHtml \"#nickName&attr=value\" ._body | set \"nickName\"}}"
+            ],
+            "actions": [
+                {
+                    "condition": "{{empty \"nickName\"}}",
+                    "message": {
+                        "status": "fail",
+                        "data": "登录失败，请稍后重试"
+                    }
+                }
+            ]
+        },
+        {
+            "page": "https://safe.jd.com/user/paymentpassword/safetyCenter.action",
+            "method": "GET",
+            "response_timeout": 60,
+            "visit_times": 3,
+			"output_filename": "safe.html",
+            "extractor": {
+            	"userInfo": {
+            		"name": "c:{{.userinfo_name}}",
+            		"nickName": "c:{{.nickName}}",
+            		"email": "#email",
+            		"mobile": "#mobile",
+            		"identity_name": ".safe-item:contains('实名认证') .fore2 strong @index=0",
+            		"identity": ".safe-item:contains('实名认证') .fore2 strong @index=1"
+            	}
+            }
+        },
+        {
+        	"tag": "get_record",
+            "page": "https://order.jd.com/center/list.action?search=0&s=4096&d={{addDate .year 0 0 \"2006\"}}&page={{.page_index}}",
+            "method": "GET",
+            "response_timeout": 60,
+            "visit_times": 3,
+            "goto_times": 250,
+			"output_filename": "year_{{addDate .year 0 0 \"2006\"}}_page_{{.page_index}}.html",
+            "context_opers": [
+                "{{extractHtml \".next\" ._body | set \"next_page\"}}",
+                "{{extractRegex \"\\\\['orderIds'\\\\]='(.*)';\" ._body | set \"orderIds\"}}",
+                "{{extractRegex \"\\\\['orderSiteIds'\\\\]='(.*)';\" ._body | set \"orderSiteIds\"}}",
+                "{{extractRegex \"\\\\['orderTypes'\\\\]='(.*)';\" ._body | set \"orderTypes\"}}",
+                "{{extractRegex \"\\\\['orderWareIds'\\\\]='(.*)';\" ._body | set \"orderWareIds\"}}",
+                "{{extractRegex \"\\\\['orderWareTypes'\\\\]='(.*)';\" ._body | set \"orderWareTypes\"}}"
+            ],
+            "extractor_new": true,
+            "extractor": {
+            	"jdRecords": {
+            		"_root": "table tbody:contains('总额')",
+            		"_array": true,
+            		"orderNo": ".tr-th .number a @index=0",
+            		"orderTime": ".tr-th .dealtime",
+                    "recipient_name": ".consignee .txt",
+            		"recipient_addr": ".pc p @index=0",
+            		"recipient_phone": ".pc p @index=1",
+            		"totalAmount": ".amount span @index=0&regex=([.0-9]+)",
+            		"orderStatus": ".order-status",
+            		"payWay": ".amount span @index=1",
+            		"items": {
+            			"_root": ".tr-bd:contains('总额')",
+            			"_array": true,
+            			"productId": ".p-extra ul li span&attr=data-sku",
+            			"count": ".goods-number&regex=([0-9]+)"
+            		}
+            	}
+            }
+        },
+        {
+            "page": "https://order.jd.com/lazy/getOrderProductInfo.action",
+            "method": "POST",
+            "output_filename": "product.json",
+            "doc_type": "json",
+            "goto_times": 250,
+            "params": {
+                "orderIds": "{{.orderIds}}",
+                "orderSiteIds": "{{.orderSiteIds}}",
+                "orderTypes": "{{.orderTypes}}",
+                "orderWareIds": "{{.orderWareIds}}",
+                "orderWareTypes": "{{.orderWareTypes}}"
+            },
+            "extractor": {
+                "product": {
+                	"_array": true,
+                	"productName": "name",
+                	"productId": "productId"
+                }
+            },
+            "actions":[
+                {
+                    "condition": "{{notEmpty \"next_page\"}}",
+                    "delete_context": ["next_page", "orderIds", "orderSiteIds", "orderTypes", "orderWareIds", "orderWareTypes"],
+                    "opers":[
+                        "{{add \"page_index\" 1}}"
+                    ],
+                    "goto": "get_record"
+                },
+                {
+                    "condition": "{{and (empty \"next_page\") (gt .year -3)}}",
+                    "opers":[
+                        "{{set \"page_index\" 1}}",
+                        "{{add \"year\" -1}}"
+                    ],
+                    "goto": "get_record"
+                }
+            ]
+        },
+        {
+            "context_opers": [
+            	"{{set \"page_index\" 1}}"
+            ]
+        },
+        {
+        	"tag": "get_other_record",
+            "page": "https://order.jd.com/center/list.action?search=0&d=3&s=4096&page={{.page_index}}",
+            "method": "GET",
+            "response_timeout": 60,
+            "visit_times": 3,
+            "goto_times": 250,
+			"output_filename": "year_2014_ago_page_{{.page_index}}.html",
+            "context_opers": [
+                "{{extractHtml \".next\" ._body | set \"next_page\"}}",
+                "{{extractRegex \"\\\\['orderIds'\\\\]='(.*)';\" ._body | set \"orderIds\"}}",
+                "{{extractRegex \"\\\\['orderSiteIds'\\\\]='(.*)';\" ._body | set \"orderSiteIds\"}}",
+                "{{extractRegex \"\\\\['orderTypes'\\\\]='(.*)';\" ._body | set \"orderTypes\"}}",
+                "{{extractRegex \"\\\\['orderWareIds'\\\\]='(.*)';\" ._body | set \"orderWareIds\"}}",
+                "{{extractRegex \"\\\\['orderWareTypes'\\\\]='(.*)';\" ._body | set \"orderWareTypes\"}}"
+            ],
+            "extractor_new": true,
+            "extractor": {
+            	"jdRecords": {
+            		"_root": "table tbody:contains('总额')",
+            		"_array": true,
+            		"orderNo": ".tr-th .number a @index=0",
+            		"orderTime": ".tr-th .dealtime",
+            		"recipient_name": ".consignee .txt",
+            		"recipient_addr": ".pc p @index=0",
+            		"recipient_phone": ".pc p @index=1",
+            		"totalAmount": ".amount span @index=0&regex=([.0-9]+)",
+            		"orderStatus": ".order-status",
+            		"payWay": ".amount span @index=1",
+            		"items": {
+            			"_root": ".tr-bd:contains('总额')",
+            			"_array": true,
+            			"productId": ".p-extra ul li span&attr=data-sku",
+            			"count": ".goods-number&regex=([0-9]+)"
+            		}
+            	}
+            }
+        },
+        {
+            "page": "https://order.jd.com/lazy/getOrderProductInfo.action",
+            "method": "POST",
+            "output_filename": "product.json",
+            "doc_type": "json",
+            "goto_times": 250,
+            "params": {
+                "orderIds": "{{.orderIds}}",
+                "orderSiteIds": "{{.orderSiteIds}}",
+                "orderTypes": "{{.orderTypes}}",
+                "orderWareIds": "{{.orderWareIds}}",
+                "orderWareTypes": "{{.orderWareTypes}}"
+            },
+            "extractor": {
+                "product": {
+                	"_array": true,
+                	"productName": "name",
+                	"productId": "productId"
+                }
+            },
+            "actions":[
+                {
+                    "condition": "{{notEmpty \"next_page\"}}",
+                    "delete_context": ["next_page", "orderIds", "orderSiteIds", "orderTypes", "orderWareIds", "orderWareTypes"],
+                    "opers":[
+                        "{{add \"page_index\" 1}}"
+                    ],
+                    "goto": "get_other_record"
+                }
+            ]
+        },
+        {
+            "doc_type": "html",
+            "extractor": {
+  				"error": "c:0"
+            },
+            "message": {
+                "status": "finish_fetch_data",
+                "data": "{\"username\": \"{{.username}}\"}"
+            }
+        }
+    ]
+}
